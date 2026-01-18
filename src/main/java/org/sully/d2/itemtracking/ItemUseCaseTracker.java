@@ -75,8 +75,7 @@ public class ItemUseCaseTracker implements ItemConsumer {
 	}
 
 	@Override
-	public void consume(D2ItemDrop itemDrop, ItemNotifier notifier) {
-		D2Item item = itemDrop.getItem();
+	public void consume(D2Item item, ItemNotifier notifier) {
 		if (useCasesByItemTypeAndQuality.containsKey(item.getItemType().getCode())) {
 			for (ItemUseCase useCase : useCasesByItemTypeAndQuality.get(item.getItemType().getCode())[item.getQuality().id]) {
 				useCase.consumeItemKnownToMatchItemCodeAndQuality(item);

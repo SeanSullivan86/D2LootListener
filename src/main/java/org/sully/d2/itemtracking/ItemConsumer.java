@@ -5,6 +5,7 @@ import org.sully.d2.gamemodel.D2Item;
 import java.util.function.Consumer;
 
 public interface ItemConsumer {
-	void consume(D2ItemDrop item, ItemNotifier notifier);
+	void consume(D2Item item, ItemNotifier notifier);
 	void closeAndGenerateOutput();
 }
+

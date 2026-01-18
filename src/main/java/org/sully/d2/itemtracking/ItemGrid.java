@@ -82,8 +82,7 @@ public class ItemGrid<RowValue,ColumnValue> implements ItemConsumer {
 	}
 
 	@Override
-	public void consume(D2ItemDrop itemDrop, ItemNotifier notifier) {
-		D2Item item = itemDrop.getItem();
+	public void consume(D2Item item, ItemNotifier notifier) {
 		if (filter != null && !filter.test(item)) {
 			return;
 		}

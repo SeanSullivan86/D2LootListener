@@ -35,8 +35,7 @@ public class PerfectUniquesTracker implements ItemConsumer {
 
 
     @Override
-    public void consume(D2ItemDrop itemDrop, ItemNotifier notifier) {
-        D2Item item = itemDrop.getItem();
+    public void consume(D2Item item, ItemNotifier notifier) {
         if (item.getQuality() != ItemQuality.UNIQUE) return;
         D2UniqueItem unique = item.getUniqueItem();
         String name = unique.getDisambiguatedName();

@@ -22,8 +22,6 @@ import java.util.Set;
 @Value
 @Builder
 public class D2Item {
-	long dropIteration;
-
 	ItemQuality quality;
 	String name;
 	String description;
@@ -84,15 +82,14 @@ public class D2Item {
 		return skillBonuses.getSkillTabBonus(skillTab);
 	}
 	
-	public static D2Item fromData(byte[] data, ByteBuffer buf) {
+	public static D2Item fromData(byte[] data, ByteBuffer buf, int offset) {
 
 		D2ItemBuilder item = D2Item.builder();
-		item.dropIteration = buf.getLong(2);
 
-		String itemTypeCode = new String(data, 10, 3, StandardCharsets.UTF_8);
+		String itemTypeCode = new String(data, offset, 3, StandardCharsets.UTF_8);
 		item.itemType = D2ItemType.fromCode(itemTypeCode);
 
-		String itemTypeTypeCode = new String(data, 13, 4, StandardCharsets.UTF_8);
+		String itemTypeTypeCode = new String(data, offset+3, 4, StandardCharsets.UTF_8);
 		if (itemTypeTypeCode.endsWith(" ")) {
 			itemTypeTypeCode = itemTypeTypeCode.substring(0,3); // todo : do it cleaner
 		}
@@ -102,18 +99,26 @@ public class D2Item {
 		}
 		item.itemTypeType = item.itemType.getItemTypeType();
 		
-		item.quality = ItemQuality.fromId(buf.get(17));
-		item.ethereal = buf.get(18) == 1;
-		item.sockets = buf.get(19);
-		item.gold = buf.getInt(20);
-        item.defense = buf.getInt(24);
+		item.quality = ItemQuality.fromId(buf.get(offset + 7));
+		item.ethereal = buf.get(offset + 8) == 1;
+		item.sockets = buf.get(offset + 9);
+		item.gold = buf.getInt(offset + 10);
+        item.defense = buf.getInt(offset + 14);
 		
-		int itemNameLength = buf.getShort(28);
-		int itemDescriptionLength = buf.getShort(30);
-		int d2sByteLength = buf.getShort(32);
-		int statCount = buf.getShort(34);
-		
-		final int statsOffset = 36;
+		int itemNameLength = buf.getShort(offset + 18);
+		int itemDescriptionLength = buf.getShort(offset + 20);
+		int d2sByteLength = buf.getShort(offset + 22);
+		int statCount = buf.getShort(offset + 24);
+
+		int statsOffset = offset + 26;
+		if (item.quality == ItemQuality.MAGIC || item.quality == ItemQuality.RARE) {
+			statsOffset += 12;
+			for (int i = 0; i < 6; i++) {
+				System.out.println("Affix ID : " + buf.getShort(offset + 26 + 2*i));
+			}
+		}
+
+
 		int nameOffset = statsOffset + 8 * statCount;
 		int descriptionOffset = nameOffset + itemNameLength;
 		int d2sOffset = descriptionOffset + itemDescriptionLength;
@@ -121,7 +126,11 @@ public class D2Item {
 		item.name = new String(data, nameOffset, itemNameLength, StandardCharsets.UTF_8);
 		item.description = new String(data, descriptionOffset, itemDescriptionLength, StandardCharsets.UTF_8);
 		item.d2sData = Arrays.copyOfRange(data, d2sOffset, d2sOffset  + d2sByteLength);
-		
+
+		if (item.quality == ItemQuality.MAGIC || item.quality == ItemQuality.RARE) {
+			System.out.println(item.name + " : " + item.description);
+			System.out.println("---");
+		}
 
 
 		StatValue[] stats = new StatValue[statCount];
@@ -151,7 +160,7 @@ public class D2Item {
 	static long nextId;
 	
 	public String toLongString() {
-		return String.join("\t", ""+this.dropIteration,
+		return String.join("\t",
 				this.itemTypeType.getCode(),
 				this.itemType.getName(),
 				this.quality.name(), 

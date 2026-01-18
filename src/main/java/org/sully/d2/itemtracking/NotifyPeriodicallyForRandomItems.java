@@ -9,14 +9,13 @@ public class NotifyPeriodicallyForRandomItems implements ItemConsumer {
     long durationBetweenNotificationsInNanos = 2_000_000_000L; // 2 seconds
 
     @Override
-    public void consume(D2ItemDrop itemDrop, ItemNotifier notifier) {
+    public void consume(D2Item item, ItemNotifier notifier) {
 
-        D2Item item = itemDrop.getItem();
         if (item.getQuality() == ItemQuality.RARE) {
             long newTime = System.nanoTime();
             if (newTime > lastNotificationNanos + durationBetweenNotificationsInNanos) {
                 notifier.notify(ItemNotification.builder()
-                        .item(itemDrop)
+                        .item(item)
                         .notificationType("RandomItem")
                         .build());
                 lastNotificationNanos = newTime;

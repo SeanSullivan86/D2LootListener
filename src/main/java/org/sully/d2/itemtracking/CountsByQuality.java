@@ -14,8 +14,8 @@ public class CountsByQuality implements ItemConsumer {
     Long lastSavedTimestamp = null;
 
     @Override
-    public void consume(D2ItemDrop item, ItemNotifier notifier) {
-        counts.incrementAndGet(item.getItem().getQuality().id);
+    public void consume(D2Item item, ItemNotifier notifier) {
+        counts.incrementAndGet(item.getQuality().id);
     }
 
     public AtomicReferenceArray<D2Item> getMostRecentItemsByQuality() {

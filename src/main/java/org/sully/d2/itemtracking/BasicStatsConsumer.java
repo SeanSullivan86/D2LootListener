@@ -15,9 +15,9 @@ public class BasicStatsConsumer implements ItemConsumer {
     AtomicLong minDropCount;
 
     @Override
-    public void consume(D2ItemDrop item, ItemNotifier notifier) {
-        counts.incrementAndGet(item.getItem().getQuality().id);
-        mostRecentItemsByQuality.set(item.getItem().getQuality().id, item.getItem());
+    public void consume(D2Item item, ItemNotifier notifier) {
+        counts.incrementAndGet(item.getQuality().id);
+        mostRecentItemsByQuality.set(item.getQuality().id, item);
     }
 
     public BasicStats getStats() {

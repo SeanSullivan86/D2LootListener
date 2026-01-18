@@ -34,13 +34,16 @@ public class ItemUseCasesHardcodedConfiguration {
                 .withAdditionalItemCriteria(item ->
                     ((item.hasStat(D2ItemStats.FIRE_RESIST.statId) ? 1 : 0) +
                     (item.hasStat(D2ItemStats.LIGHTNING_RESIST.statId) ? 1 : 0) +
-                    (item.hasStat(D2ItemStats.COLD_RESIST.statId) ? 1 : 0) +
-                    (item.hasStat(D2ItemStats.POISON_RESIST.statId) ? 1 : 0)) >= 3)
+                    (item.hasStat(D2ItemStats.COLD_RESIST.statId) ? 1 : 0)  /* +
+                    (item.hasStat(D2ItemStats.POISON_RESIST.statId) ? 1 : 0) */) >= 3)
                 .withCategorizer(item -> "All")
-                .withScoringFunction(item -> item.getStat(D2ItemStats.FIRE_RESIST.statId) +
+                .withScoringFunction(item ->
+                        item.getStat(D2ItemStats.MAGIC_FIND.statId) +
+                                item.getStat(D2ItemStats.FASTER_RUN_WALK_SPEED.statId) +
+                        item.getStat(D2ItemStats.FIRE_RESIST.statId) +
                     item.getStat(D2ItemStats.LIGHTNING_RESIST.statId) +
-                    item.getStat(D2ItemStats.COLD_RESIST.statId) +
-                    item.getStat(D2ItemStats.POISON_RESIST.statId))
+                    item.getStat(D2ItemStats.COLD_RESIST.statId) /* +
+                    item.getStat(D2ItemStats.POISON_RESIST.statId) */)
                 .withCountOfTopScoringItemsToKeepInEachCategory(20)
                 .build();
 

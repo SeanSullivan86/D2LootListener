@@ -40,7 +40,7 @@ public class D2LootListener {
 
 
 	private static void run(Server server) throws Exception {
-		int port = 5492;
+		int d2InstanceCount = 1;
 		(new File("output")).mkdir();
 
 		loadAndLinkStaticGameData();
@@ -98,39 +98,65 @@ public class D2LootListener {
 		//broadcasterThread.setDaemon(true);
 		//broadcasterThread.start();
 
-		try (
+		byte[] itemBuffer = new byte[65536];
 
-				//ServerSocket serverSocket = new ServerSocket(port);
-				//Socket clientSocket = serverSocket.accept();
-				//PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
-				//InputStream in = new BufferedInputStream(clientSocket.getInputStream());
+		D2DropContext[] dropContexts = new D2DropContext[d2InstanceCount];
 
-				InputStream in = new BufferedInputStream(new FileInputStream("C:\\Users\\12063\\streamdata.bin"));
-				
-				) {
-			
-			System.out.println("Connected...");
-			D2ItemDrop itemDrop;
+		InputStream[] inputStreams = new InputStream[d2InstanceCount];
+		for (int i = 0; i < d2InstanceCount; i++) {
+			ServerSocket serverSocket = new ServerSocket(5430 + i);
+			System.out.println("Waiting for connection on port " + (5430 + i));
+			Socket clientSocket = serverSocket.accept();
+			// PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
+			inputStreams[i] = new BufferedInputStream(clientSocket.getInputStream());
+			System.out.println("Connection " + i + " established...");
 
-			long i = 0;
-			byte[] itemBuffer = new byte[65536];
+			readFully(inputStreams[i], itemBuffer, 0, 28);
+			ByteBuffer buf = ByteBuffer.wrap(itemBuffer);
+			buf.order(ByteOrder.LITTLE_ENDIAN);
+
+			dropContexts[i] = D2DropContext.builder()
+					.treasureClassId(buf.getInt(8))
+					.magicFind(buf.getInt(12))
+					.unitTypeId(buf.getInt(16))
+					.unitClassId(buf.getInt(20))
+					.gameDifficulty(buf.getInt(24))
+					.build();
+		}
+		//InputStream in = new BufferedInputStream(new FileInputStream("C:\\Users\\12063\\streamdata.bin"));
+		InputStream in;
+
+		try {
+			long iteration = 0;
+			long lastTimestamp = 0;
+			ByteBuffer buf;
+			int multidropMessageSize;
+			long multidropIterationInSingleGame;
+			int itemCountInMultidrop;
+			int d2InstanceIndex;
+
+			D2TCDrop tcDrop;
 
 			while (true) {
-				int byte1 = in.read();
-				int byte2 = in.read();
-				if (byte1 == -1 || byte2 == -1) {
-					Thread.sleep(1_000_000);
-					throw new RuntimeException("End of Stream");
-				}
-				int messageLength = byte1 + (byte2 << 8);
-				
-				// will throw if reaching end of InputStream
-				readFully(in, itemBuffer, 2, messageLength - 2);
-				
-				ByteBuffer buf = ByteBuffer.wrap(itemBuffer);
-				buf.order(ByteOrder.LITTLE_ENDIAN);
-				itemDrop = D2ItemDrop.fromData(itemBuffer, buf);
-				i++;
+				d2InstanceIndex = (int) (iteration % d2InstanceCount);
+				in = inputStreams[d2InstanceIndex];
+
+
+				readFully(in, itemBuffer, 0, 16);
+				buf = ByteBuffer.wrap(itemBuffer).order(ByteOrder.LITTLE_ENDIAN);
+				multidropMessageSize = buf.getInt(0);
+				multidropIterationInSingleGame = buf.getLong(4);
+				itemCountInMultidrop = buf.getInt(12);
+
+				readFully(in, itemBuffer, 0, multidropMessageSize - 16);
+				buf = ByteBuffer.wrap(itemBuffer).order(ByteOrder.LITTLE_ENDIAN);
+
+				tcDrop = D2TCDrop.fromData(itemBuffer, buf, dropContexts[d2InstanceIndex], multidropIterationInSingleGame, itemCountInMultidrop);
+
+				//try { Thread.sleep(1000); } catch (InterruptedException e) { throw new RuntimeException(e); }
+
+
+				iteration++;
 
 				/*
 				if (item.getItem().getQuality() == ItemQuality.RARE) {
@@ -140,6 +166,7 @@ public class D2LootListener {
 					System.out.println(jackson.writeValueAsString(item.getItem()));
 				} */
 
+				/*
 				try {
 					for (ItemConsumer consumer : consumers) {
 						consumer.consume(itemDrop, stdoutNotifier);
@@ -148,6 +175,14 @@ public class D2LootListener {
 					System.out.println("Failed on item : " + itemDrop.getItem().toLongString());
 					throw e;
 				}
+
+				if (iteration % 100000 == 0) {
+					long newTimestamp = System.nanoTime();
+					System.out.println("" + ((newTimestamp - lastTimestamp)/100_000.0));
+					lastTimestamp = newTimestamp;
+				}
+				*/
+
 /*
 				if (i % 100 == 0) {
 					try { Thread.sleep(1000); } catch (InterruptedException e) { throw new RuntimeException(e); }
@@ -196,7 +231,8 @@ public class D2LootListener {
         while (n < len) {
             int count = in.read(b, off + n, len - n);
             if (count < 0) {
-				try { Thread.sleep(1_000_000); } catch (InterruptedException e) { throw new RuntimeException(e); }
+				System.out.println("End of Stream 2222");
+				try { Thread.sleep(1_000_000_000); } catch (InterruptedException e) { throw new RuntimeException(e); }
                 throw new RuntimeException("End of Stream...");
             }
             n += count;

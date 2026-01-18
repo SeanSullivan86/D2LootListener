@@ -2,6 +2,7 @@ package org.sully.d2.itemtracking;
 
 import lombok.Builder;
 import lombok.Value;
+import org.sully.d2.gamemodel.D2Item;
 
 import java.util.List;
 
@@ -9,7 +10,7 @@ import java.util.List;
 @Builder
 public class ItemNotification {
 
-    D2ItemDrop item;
+    D2Item item;
     String notificationType;
     List<String> subtypes;
     Integer score;
