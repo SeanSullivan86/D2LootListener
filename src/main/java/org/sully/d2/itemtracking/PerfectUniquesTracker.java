@@ -13,8 +13,8 @@ import java.util.Map;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
-public class PerfectUniquesTracker implements ItemConsumer {
-    final Map<String, D2UniqueItem> remainingPerfectNonEthUniques = new HashMap<>();
+public class PerfectUniquesTracker /* implements ItemConsumer */ {
+/*    final Map<String, D2UniqueItem> remainingPerfectNonEthUniques = new HashMap<>();
     final Map<String, D2UniqueItem> remainingPerfectEthUniques = new HashMap<>();
     final Map<String, D2Item> foundPerfectNonEthUniques = new LinkedHashMap<>();
     final Map<String, D2Item> foundPerfectEthUniques = new LinkedHashMap<>();
@@ -90,5 +90,5 @@ public class PerfectUniquesTracker implements ItemConsumer {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-    }
+    } */
 }

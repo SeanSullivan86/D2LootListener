@@ -1,43 +1,57 @@
 package org.sully.d2.itemtracking;
 
 import lombok.Getter;
-
-import java.io.PrintWriter;
+import org.sully.d2.gamemodel.D2Item;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
-import java.util.stream.Stream;
 
-public class TopNAndScoreDistribution<T> {
+public class TopNAndScoreDistribution {
 
 	@Getter
 	private int n;
 
 	@Getter
-	private ConcurrentHashMap<Integer,Long> scoreDistribution;
-	
-	private TreeSet<ItemAndScore<T>> topN;
+	private Map<Integer,Long> scoreDistribution;
+
+	@Getter
+	private TreeSet<ItemAndScore> topN;
 	private int minScoreForTopN;
-	private volatile TopNSuperset<T> topNForReadAccess;
 	
 	public TopNAndScoreDistribution(int n) {
 		this.n = n;
-		this.topNForReadAccess = TopNSuperset.newList(n);
 
 		// max score is first set item (it's in descending order)
 		this.topN = new TreeSet<>(ItemAndScore.comparator);
-		this.scoreDistribution = new ConcurrentHashMap<>();
+		this.scoreDistribution = new HashMap<>();
 	}
 
-	public List<ItemAndScore<T>> getTopN() {
-		return topNForReadAccess.getTopN();
+	public void overrideScoreDistribution(Map<Integer,Long> scores) {
+		this.scoreDistribution = new HashMap<>(scores);
 	}
 
-	long sequenceNumber = 0;
-	public void consume(T item, int value) {
+	public void incrementScoreDistribution(Map<Integer,Long> newScores) {
+		for (Map.Entry<Integer, Long> e : newScores.entrySet()) {
+			int score = e.getKey();
+			long frequency = e.getValue();
+			if (scoreDistribution.containsKey(score)) {
+				scoreDistribution.put(score, scoreDistribution.get(score) + frequency);
+			} else {
+				scoreDistribution.put(score, frequency);
+			}
+		}
+	}
+
+	public void consumeWithoutUpdatingScoreDistribution(D2Item item, int value) {
+		consume(item, value, false);
+	}
+
+	public void consume(D2Item item, int value) {
+		consume(item, value, true);
+	}
+
+	public void consume(D2Item item, int value, boolean updateScoreDistribution) {
 
 		if (topN.size() < this.n || value > minScoreForTopN) {
-			ItemAndScore<T> newEntry = new ItemAndScore<>(item, value, ++sequenceNumber);
+			ItemAndScore newEntry = new ItemAndScore(item, value);
 
 			topN.add(newEntry);
 			if (topN.size() > this.n) {
@@ -45,21 +59,20 @@ public class TopNAndScoreDistribution<T> {
 			}
 
 			this.minScoreForTopN = topN.last().getScore();
+		}
 
-			TopNSuperset<T> maybeNewCompactedList = topNForReadAccess.add(newEntry, newEntry.getSequenceNumber());
-			if (maybeNewCompactedList != null) {
-				topNForReadAccess = maybeNewCompactedList;
+		if (updateScoreDistribution) {
+			if (scoreDistribution.containsKey(value)) {
+				scoreDistribution.put(value, 1 + scoreDistribution.get(value));
+			} else {
+				scoreDistribution.put(value, 1L);
 			}
 		}
 
-		if (scoreDistribution.containsKey(value)) {
-			scoreDistribution.put(value, 1 + scoreDistribution.get(value));
-		} else {
-			scoreDistribution.put(value, 1L);
-		}
 
 	}
-	
+
+	/*
 	public void printTopItemsOnePerLine(PrintWriter out, String prefix, Function<T,String> itemToString) {
 		if (prefix != null && !prefix.isEmpty() && !prefix.endsWith("\t")) {
 			throw new RuntimeException("line prefix must end with a tab character if non-null/non-empty");
@@ -95,12 +108,13 @@ public class TopNAndScoreDistribution<T> {
 			// TODO print
 		}
 		
-	}
+	} */
 
 
 
 }
 
+/*
 class TopNSuperset<T> {
 	final int n;
 	final long revisionNumberAtLastCompaction;
@@ -155,4 +169,4 @@ class TopNSuperset<T> {
 	}
 
 
-}
+} */

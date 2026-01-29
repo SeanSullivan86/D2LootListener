@@ -1,42 +1,65 @@
 package org.sully.d2.itemtracking;
 
-import lombok.Builder;
-import lombok.Value;
+import lombok.Getter;
 import org.sully.d2.gamemodel.D2Item;
 
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicLongArray;
-import java.util.concurrent.atomic.AtomicReferenceArray;
+import java.util.Arrays;
+import java.util.Map;
+import java.util.Objects;
 
-public class BasicStatsConsumer implements ItemConsumer {
+public class BasicStatsConsumer implements D2TCDropConsumer {
 
-    AtomicLongArray counts = new AtomicLongArray(10);
-    AtomicReferenceArray<D2Item> mostRecentItemsByQuality = new AtomicReferenceArray<>(10);
-    AtomicLong minDropCount;
+    @Getter
+    long totalIterations = 0L;
 
-    @Override
-    public void consume(D2Item item, ItemNotifier notifier) {
-        counts.incrementAndGet(item.getQuality().id);
-        mostRecentItemsByQuality.set(item.getQuality().id, item);
+    long[] countsByQuality = new long[10];
+    D2Item[] mostRecentItemByQuality = new D2Item[10];
+
+    @Getter
+    String name;
+
+    public BasicStatsConsumer(String name) {
+        this.name = name;
     }
 
-    public BasicStats getStats() {
-        D2Item[] x = new D2Item[10];
-        long[] c = new long[10];
+    @Override
+    public void initializeFromSnapshot(TCDropConsumerSnapshot untypedSnapshot, Map<Long, D2Item> itemsById) {
+        BasicStatsSnapshot snapshot = (BasicStatsSnapshot) untypedSnapshot;
         for (int i = 0; i < 10; i++) {
-            x[i] = mostRecentItemsByQuality.get(i);
-            c[i] = counts.get(i);
+            countsByQuality[i] = snapshot.getCountsByQuality()[i];
+            Long itemId = snapshot.getMostRecentItemIdsByQuality()[i];
+            mostRecentItemByQuality[i] = itemId == null ? null : itemsById.get(itemId);
+        }
+        this.totalIterations = snapshot.getTotalIterations();
+    }
+
+    @Override
+    public void consume(D2TCDrop tcDrop) {
+        for (D2Item item : tcDrop.getItems()) {
+            int quality = item.getQuality().id;
+            countsByQuality[quality]++;
+            mostRecentItemByQuality[quality] = item;
+        }
+        totalIterations++;
+    }
+
+    @Override
+    public DataReferencingItems<TCDropConsumerSnapshot> takeSnapshot() {
+        long[] countsByQuality = new long[10];
+        Long[] itemIdsByQuality = new Long[10];
+        for (int i = 0; i < 10; i++) {
+            countsByQuality[i] = this.countsByQuality[i];
+            itemIdsByQuality[i] = this.mostRecentItemByQuality[i] == null ? null : this.mostRecentItemByQuality[i].getId();
         }
 
-        return BasicStats.builder()
-                .countsByQuality(c)
-                .mostRecentItemsByQuality(x)
+        return DataReferencingItems.<TCDropConsumerSnapshot>builder()
+                .data(BasicStatsSnapshot.builder()
+                        .countsByQuality(countsByQuality)
+                        .mostRecentItemIdsByQuality(itemIdsByQuality)
+                        .name(name)
+                        .build())
+                .items(Arrays.stream(this.mostRecentItemByQuality).filter(Objects::nonNull).toList())
                 .build();
-    }
-
-    @Override
-    public void closeAndGenerateOutput() {
-
     }
 
 }

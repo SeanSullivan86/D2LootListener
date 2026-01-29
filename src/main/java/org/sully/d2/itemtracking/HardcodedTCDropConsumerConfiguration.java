@@ -10,63 +10,95 @@ import org.sully.d2.gamemodel.enums.SkillTab;
 import org.sully.d2.gamemodel.staticgamedata.D2ItemStats;
 import org.sully.d2.gamemodel.staticgamedata.D2Skills;
 
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
-public class ItemUseCasesHardcodedConfiguration {
+public class HardcodedTCDropConsumerConfiguration {
 
-    public static ItemUseCaseTracker createTrackerWithHardcodedItemUseCases() {
+    public Map<DropContextEnum, List<D2TCDropConsumer>> initializeConsumers(Set<DropContextEnum> dropContexts) {
+        Map<DropContextEnum,List<D2TCDropConsumer>> consumersByDropContext = new HashMap<>();
+        for (DropContextEnum dropContext : dropContexts) {
+            consumersByDropContext.put(dropContext, initializeConsumersForSingleDropContext(dropContext));
+        }
+        return consumersByDropContext;
+    }
+
+    private List<D2TCDropConsumer> initializeConsumersForSingleDropContext(DropContextEnum dropContext) {
+
+        List<D2TCDropConsumer> allConsumers = new ArrayList<>();
+
+        allConsumers.add( new ItemGrid(
+                "Item Counts by Item Type and Quality",
+                item -> item.getItemType().getName(),
+                item -> item.getQuality().name(),
+                item -> true,
+                itemName -> itemName,
+                quality -> quality,
+                Comparator.naturalOrder(),
+                Comparator.naturalOrder()));
+
+        allConsumers.add(new ItemGrid(
+                "Counts of Set and Unique Items by Name",
+                D2Item::getName,
+                item -> item.isEthereal() ? "Ethereal" : "Non-Ethereal",
+                item -> (item.getQuality() == ItemQuality.SET || item.getQuality() == ItemQuality.UNIQUE),
+                name -> name,
+                eth -> eth,
+                Comparator.naturalOrder(),
+                Comparator.naturalOrder()));
+
+        allConsumers.add(new BasicStatsConsumer("Basic Stats"));
+
         Set<Integer> threeSocketCircletStats = D2ItemStats.getStatIds(D2ItemStats.FASTER_RUN_WALK_SPEED,
                 D2ItemStats.DEXTERITY, D2ItemStats.LIFE, D2ItemStats.DAMAGE_REDUCTION, D2ItemStats.FASTER_CAST_RATE, D2ItemStats.STRENGTH);
-        ItemUseCase threeSocketMagicCirclets = ItemUseCase.named("Three Socket Magic Circlets")
+        allConsumers.add(CategorizedTopN.named("Three Socket Magic Circlets")
                 .addItemTypeTypeCodes("circ")
                 .allowItemQualities(ItemQuality.MAGIC)
                 .withAdditionalItemCriteria(item -> item.getSockets() >= 3 && item.hasAtLeastOneOfTheseStats(threeSocketCircletStats))
                 .withCategorizer(D2Item::getName)
                 .withScoringFunction(item -> 1)
                 .withCountOfTopScoringItemsToKeepInEachCategory(2)
-                .build();
+                .build());
 
-        ItemUseCase triResBoots = ItemUseCase.named("Tri-Res Boots")
+        allConsumers.add(CategorizedTopN.named("Tri-Res Boots")
                 .addItemTypeTypeCodes("boot")
                 .allowItemQualities(ItemQuality.RARE)
                 .withAdditionalItemCriteria(item ->
-                    ((item.hasStat(D2ItemStats.FIRE_RESIST.statId) ? 1 : 0) +
-                    (item.hasStat(D2ItemStats.LIGHTNING_RESIST.statId) ? 1 : 0) +
-                    (item.hasStat(D2ItemStats.COLD_RESIST.statId) ? 1 : 0)  /* +
+                        ((item.hasStat(D2ItemStats.FIRE_RESIST.statId) ? 1 : 0) +
+                                (item.hasStat(D2ItemStats.LIGHTNING_RESIST.statId) ? 1 : 0) +
+                                (item.hasStat(D2ItemStats.COLD_RESIST.statId) ? 1 : 0)  /* +
                     (item.hasStat(D2ItemStats.POISON_RESIST.statId) ? 1 : 0) */) >= 3)
                 .withCategorizer(item -> "All")
                 .withScoringFunction(item ->
                         item.getStat(D2ItemStats.MAGIC_FIND.statId) +
                                 item.getStat(D2ItemStats.FASTER_RUN_WALK_SPEED.statId) +
-                        item.getStat(D2ItemStats.FIRE_RESIST.statId) +
-                    item.getStat(D2ItemStats.LIGHTNING_RESIST.statId) +
-                    item.getStat(D2ItemStats.COLD_RESIST.statId) /* +
+                                item.getStat(D2ItemStats.FIRE_RESIST.statId) +
+                                item.getStat(D2ItemStats.LIGHTNING_RESIST.statId) +
+                                item.getStat(D2ItemStats.COLD_RESIST.statId) /* +
                     item.getStat(D2ItemStats.POISON_RESIST.statId) */)
                 .withCountOfTopScoringItemsToKeepInEachCategory(20)
-                .build();
+                .build());
 
 
-        ItemUseCase fourSocketArmors = ItemUseCase.named("Four Socket Armors")
+        allConsumers.add(CategorizedTopN.named("Four Socket Armors")
                 .addItemTypeTypeCodes("tors")
                 .withAdditionalItemCriteria(item -> item.getSockets() == 4 && item.getStat(D2ItemStats.LIFE.statId) > 80*256)
                 .allowItemQualities(ItemQuality.MAGIC)
                 .withCategorizer(D2Item::getName)
                 .withScoringFunction(item -> item.getStat(7)/256)
                 .withCountOfTopScoringItemsToKeepInEachCategory(2)
-                .build();
+                .build());
 
-        ItemUseCase skillCharmsOfVita = ItemUseCase.named("Skill Grand Charms of Vita")
+        allConsumers.add(CategorizedTopN.named("Skill Grand Charms of Vita")
                 .addItemTypeTypeCodes("lcha")
                 .withAdditionalItemCriteria(item -> item.hasAtLeastOneSkillTabBonus() && item.getStat(7)/256 >= 36)
                 .allowItemQualities(ItemQuality.MAGIC)
                 .withCategorizer(D2Item::getName)
                 .withScoringFunction(item -> item.getStat(7)/256)
                 .withCountOfTopScoringItemsToKeepInEachCategory(2)
-                .build();
+                .build());
 
-        ItemUseCase iasJewels = ItemUseCase.named("IAS Jewels")
+        allConsumers.add(CategorizedTopN.named("IAS Jewels")
                 .addItemTypeTypeCodes("jewl")
                 .withAdditionalItemCriteria(item -> item.hasStat(D2ItemStats.INCREASED_ATTACK_SPEED.statId) &&
                         ((item.getStat(D2ItemStats.MAXDAMAGE_PERCENT.statId) > 30) ||
@@ -75,9 +107,9 @@ public class ItemUseCasesHardcodedConfiguration {
                 .withCategorizer(D2Item::getName)
                 .withScoringFunction(item -> item.getStat(D2ItemStats.MAXDAMAGE_PERCENT.statId) + item.getStat(D2ItemStats.FIRE_RESIST.statId))
                 .withCountOfTopScoringItemsToKeepInEachCategory(5)
-                .build();
+                .build());
 
-        ItemUseCase rareMeleeJewels = ItemUseCase.named("Rare Melee Jewels")
+        allConsumers.add(CategorizedTopN.named("Rare Melee Jewels")
                 .addItemTypeTypeCodes("jewl")
                 .withAdditionalItemCriteria(item -> item.getStat(D2ItemStats.MAXDAMAGE_PERCENT.statId) > 20)
                 .allowItemQualities(ItemQuality.RARE)
@@ -86,36 +118,36 @@ public class ItemUseCasesHardcodedConfiguration {
                         + item.getStat(D2ItemStats.FIRE_RESIST.statId)/3 + item.getStat(D2ItemStats.LIGHTNING_RESIST.statId)/3 + item.getStat(D2ItemStats.COLD_RESIST.statId)/3
                         + item.getStat(D2ItemStats.STRENGTH.statId) + item.getStat(D2ItemStats.DEXTERITY.statId) + item.getStat(D2ItemStats.ATTACK_RATING.statId)/5)
                 .withCountOfTopScoringItemsToKeepInEachCategory(20)
-                .build();
+                .build());
 
-        ItemUseCase superiorItems = ItemUseCase.named("Superior Items")
+        allConsumers.add(CategorizedTopN.named("Superior Items")
                 .addItemTypeTypeCodes("weap","armo")
                 .allowItemQualities(ItemQuality.SUPERIOR)
                 .withCategorizer(item -> item.getName() + "|" + (item.isEthereal() ? "eth" : "non") + "|" + item.getSockets())
                 .withScoringFunction(item -> item.getStat(D2ItemStats.MAXDAMAGE_PERCENT.statId) + item.getStat(D2ItemStats.ENHANCED_DEFENSE_PERCENT.statId))
                 .withCountOfTopScoringItemsToKeepInEachCategory(1)
-                .build();
+                .build());
 
-        ItemUseCase illegalBarbStaffmods = ItemUseCase.named("Illegal Barb Staffmods")
+        allConsumers.add(CategorizedTopN.named("Illegal Barb Staffmods")
                 .addItemTypeTypeCodes("phlm")
                 .allowItemQualities(ItemQuality.INFERIOR, ItemQuality.NORMAL, ItemQuality.SUPERIOR, ItemQuality.MAGIC, ItemQuality.RARE)
                 .withAdditionalItemCriteria(item -> !item.getIllegalStaffmods().isEmpty())
                 .withCategorizer(item -> item.getIllegalStaffmods().stream().map(s -> s.getSkill().getName() + "(" + s.getSkillLevelBonus() + ")").sorted().collect(Collectors.joining(" ")))
                 .withScoringFunction(item -> item.getQuality().id)
                 .withCountOfTopScoringItemsToKeepInEachCategory(5)
-                .build();
+                .build());
 
-        ItemUseCase windDruidPelts = ItemUseCase.named("Wind Druid Pelts")
+        allConsumers.add(CategorizedTopN.named("Wind Druid Pelts")
                 .addItemTypeTypeCodes("pelt")
                 .allowItemQualities(ItemQuality.MAGIC, ItemQuality.RARE)
                 .withAdditionalItemCriteria(item -> item.getTotalBonusIncludingSkillTabAndClassSkillBonuses(D2Skills.TORNADO.get()) >= 4)
                 .withCategorizer(item -> item.getQuality().name())
                 .withScoringFunction(item -> item.getTotalBonusIncludingSkillTabAndClassSkillBonuses(D2Skills.TORNADO.get()))
                 .withCountOfTopScoringItemsToKeepInEachCategory(5)
-                .build();
+                .build());
 
         final AttackingContext barbTwoHandedSword = new AttackingContext(CharacterClass.BARBARIAN, 60, 2);
-        ItemUseCase rareWeaponHighDps = ItemUseCase.named("Rare Weapons|1 or 2 handed : Highest DPS")
+        allConsumers.add(CategorizedTopN.named("Rare Weapons|1 or 2 handed : Highest DPS")
                 .addItemTypeTypeCodes("weap")
                 .excludeItemTypeTypeCodes("staf","wand","orb")
                 .allowItemQualities(ItemQuality.RARE)
@@ -136,10 +168,10 @@ public class ItemUseCasesHardcodedConfiguration {
                     return weapon.getDamage(barbTwoHandedSword).getDps();
                 })
                 .withCountOfTopScoringItemsToKeepInEachCategory(10)
-                .build();
+                .build());
 
         final AttackingContext barbOneHandedSword = new AttackingContext(CharacterClass.BARBARIAN, 60, 1);
-        ItemUseCase oneHandedRareWeaponByDPS = ItemUseCase.named("Rare Weapons|1 handed : Highest DPS")
+        allConsumers.add(CategorizedTopN.named("Rare Weapons|1 handed : Highest DPS")
                 .addItemTypeTypeCodes("weap")
                 .excludeItemTypeTypeCodes("staf","wand","orb")
                 .allowItemQualities(ItemQuality.RARE)
@@ -161,9 +193,9 @@ public class ItemUseCasesHardcodedConfiguration {
                     return weapon.getDamage(barbOneHandedSword).getDps();
                 })
                 .withCountOfTopScoringItemsToKeepInEachCategory(10)
-                .build();
+                .build());
 
-        ItemUseCase magicJavelins = ItemUseCase.named("Magic Skill/IAS Javelins")
+        allConsumers.add(CategorizedTopN.named("Magic Skill/IAS Javelins")
                 .addItemTypeTypeCodes("ajav")
                 .allowItemQualities(ItemQuality.MAGIC)
                 .withAdditionalItemCriteria(item -> {
@@ -173,24 +205,9 @@ public class ItemUseCasesHardcodedConfiguration {
                 .withCategorizer(item -> item.getStat(D2ItemStats.INCREASED_ATTACK_SPEED.statId) + " IAS")
                 .withScoringFunction(item -> item.getSkillTabBonus(SkillTab.AMAZON_JAVELIN_AND_SPEAR_SKILLS).getTotalBonusIncludingCharacterClassSkillBonuses())
                 .withCountOfTopScoringItemsToKeepInEachCategory(5)
-                .build();
+                .build());
 
 
-
-        ItemUseCaseTracker useCaseTracker = new ItemUseCaseTracker(List.of(
-                fourSocketArmors,
-                threeSocketMagicCirclets,
-                skillCharmsOfVita,
-                triResBoots,
-                iasJewels,
-                rareMeleeJewels,
-                superiorItems,
-                illegalBarbStaffmods,
-                rareWeaponHighDps,
-                magicJavelins,
-                oneHandedRareWeaponByDPS,
-                windDruidPelts));
-        return useCaseTracker;
+        return allConsumers;
     }
-
 }

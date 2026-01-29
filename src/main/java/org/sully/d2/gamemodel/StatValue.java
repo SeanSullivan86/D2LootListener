@@ -1,7 +1,5 @@
 package org.sully.d2.gamemodel;
 
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Value;
 

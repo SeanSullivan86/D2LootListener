@@ -12,8 +12,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
-public class ClientRequestHandlerImpl implements ClientRequest.Handler {
-
+public class ClientRequestHandlerImpl  /* implements ClientRequest.Handler */ {
+/*
     private final ItemUseCaseTracker itemUseCaseTracker;
     private final BasicStatsConsumer basicStatsConsumer;
     private final Map<String,ItemGrid<?,?>> itemGrids;
@@ -39,7 +39,7 @@ public class ClientRequestHandlerImpl implements ClientRequest.Handler {
         for (int i = 0; i < itemCountToReturn; i++) {
             item = topNItems.get(i);
             if ((item.getSequenceNumber() > request.getMaxSequenceNumberAlreadyFetched()) ||
-                    (i+1) /* i+1 == "rank") */ > request.getMaxRankAlreadyFetched()) {
+                    (i+1) > request.getMaxRankAlreadyFetched()) {
                 filteredItems.add(item);
             }
         }
@@ -137,4 +137,5 @@ public class ClientRequestHandlerImpl implements ClientRequest.Handler {
             e.printStackTrace(System.err);
         }
     }
+    */
 }

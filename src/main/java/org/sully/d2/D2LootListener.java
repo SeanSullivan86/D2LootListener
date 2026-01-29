@@ -1,113 +1,45 @@
 package org.sully.d2;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.glassfish.tyrus.server.Server;
 import org.sully.d2.gamemodel.D2Item;
 import org.sully.d2.gamemodel.enums.ItemQuality;
 import org.sully.d2.gamemodel.staticgamedata.strings.D2String;
 import org.sully.d2.gamemodel.staticgamedata.*;
 import org.sully.d2.itemtracking.*;
-import org.sully.d2.websocketserver.ClientRequestHandlerImpl;
-import org.sully.d2.websocketserver.LootEndpoint;
-import org.sully.d2.websocketserver.PeriodicItemBroadcaster;
 
 import java.io.*;
-import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 
 public class D2LootListener {
 
-	public static void main(String[] args) {
-		Server server = new Server("localhost", 8025, "/ws", null, LootEndpoint.class);
-		try {
-			run(server);
-		} catch (Exception e) {
-			e.printStackTrace();
-		} finally {
-			server.stop();
-		}
-	}
-
-	private static volatile ClientRequestHandlerImpl requestHandler;
-	public synchronized static ClientRequestHandlerImpl getRequestHandler() {
-		return requestHandler;
+	public static void main(String[] args) throws Exception {
+		run();
 	}
 
 
-	private static void run(Server server) throws Exception {
+
+
+	private static void run() throws Exception {
 		int d2InstanceCount = 1;
-		(new File("output")).mkdir();
+		String snapshotFolder = "C:\\Users\\sully\\D2LootSnapshots";
+
+		SnapshotManager snapshotManager = new SnapshotManager(snapshotFolder);
 
 		loadAndLinkStaticGameData();
-		
-		List<ItemConsumer> consumers = new ArrayList<>();
 
-		ItemGrid countsByTypeAndQuality = new ItemGrid<String, String>(
-				"Item Counts by Item Type and Quality",
-				item -> item.getItemType().getName(),
-				item -> item.getQuality().name(),
-				item -> true,
-				itemName -> itemName,
-				quality -> quality,
-				Comparator.naturalOrder(),
-				Comparator.naturalOrder(),
-				new File("output/itemTypeAndQualityGrid.csv"));
-
-		ItemGrid uniquesAndSets = new ItemGrid<String, String>(
-				"Counts of Set and Unique Items by Name",
-				D2Item::getName,
-				item -> item.isEthereal() ? "Ethereal" : "Non-Ethereal",
-				item -> (item.getQuality() == ItemQuality.SET || item.getQuality() == ItemQuality.UNIQUE),
-				name -> name,
-				eth -> eth,
-				Comparator.naturalOrder(),
-				Comparator.naturalOrder(),
-				new File("output/uniquesAndSets.csv"));
-
-
-		ItemUseCaseTracker useCaseTracker = ItemUseCasesHardcodedConfiguration.createTrackerWithHardcodedItemUseCases();
-
-
-		BasicStatsConsumer basicStatsConsumer = new BasicStatsConsumer();
-
-
-		consumers.add(countsByTypeAndQuality);
-		consumers.add(uniquesAndSets);
-		// consumers.add(new PerfectUniquesTracker());
-		consumers.add(useCaseTracker);
-		consumers.add(basicStatsConsumer);
-
-		//consumers.add(new NotifyPeriodicallyForRandomItems());
-		ItemNotifier stdoutNotifier = new StdoutItemNotifier();
-
-		Map<String,ItemGrid<?,?>> itemGrids = new ConcurrentHashMap<>();
-        itemGrids.put(uniquesAndSets.getName(), uniquesAndSets);
-        itemGrids.put(countsByTypeAndQuality.getName(), countsByTypeAndQuality);
-
-        requestHandler = new ClientRequestHandlerImpl(useCaseTracker, basicStatsConsumer, itemGrids, new ObjectMapper());
-
-		server.start();
-
-		//PeriodicItemBroadcaster broadcaster = new PeriodicItemBroadcaster(countsByQuality);
-		//Thread broadcasterThread = new Thread(broadcaster);
-		//broadcasterThread.setDaemon(true);
-		//broadcasterThread.start();
+		DropContextEnum[] dropContextsByGameIndex = new DropContextEnum[d2InstanceCount];
 
 		byte[] itemBuffer = new byte[65536];
-
-		D2DropContext[] dropContexts = new D2DropContext[d2InstanceCount];
-
 		InputStream[] inputStreams = new InputStream[d2InstanceCount];
 		for (int i = 0; i < d2InstanceCount; i++) {
-			ServerSocket serverSocket = new ServerSocket(5430 + i);
-			System.out.println("Waiting for connection on port " + (5430 + i));
-			Socket clientSocket = serverSocket.accept();
-			// PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
+
+			Socket clientSocket = new Socket((String) null, 5430 + i);
+
 			inputStreams[i] = new BufferedInputStream(clientSocket.getInputStream());
 			System.out.println("Connection " + i + " established...");
 
@@ -115,91 +47,136 @@ public class D2LootListener {
 			ByteBuffer buf = ByteBuffer.wrap(itemBuffer);
 			buf.order(ByteOrder.LITTLE_ENDIAN);
 
-			dropContexts[i] = D2DropContext.builder()
+			D2DropContext dropContext = D2DropContext.builder()
 					.treasureClassId(buf.getInt(8))
 					.magicFind(buf.getInt(12))
 					.unitTypeId(buf.getInt(16))
 					.unitClassId(buf.getInt(20))
 					.gameDifficulty(buf.getInt(24))
 					.build();
+			dropContextsByGameIndex[i] = DropContextEnum.getFromDropContextDetails(dropContext);
+
 		}
+
+		DataSnapshot dataSnapshot = snapshotManager.retrieveMostRecentSnapshot();
+
+		Set<DropContextEnum> dropContextsFromD2Instances = new HashSet<>();
+		dropContextsFromD2Instances.addAll(Arrays.asList(dropContextsByGameIndex));
+
+		Set<DropContextEnum> dropContextsFromSnapshot = dataSnapshot == null ? Set.of() : dataSnapshot.getDropContexts().stream()
+				.map(x -> DropContextEnum.valueOf(x.getDropContextName()))
+				.collect(Collectors.toSet());
+
+		Set<DropContextEnum> allDropContexts = new HashSet<>(dropContextsFromSnapshot);
+        allDropContexts.addAll(dropContextsFromD2Instances);
+
+
+		HardcodedTCDropConsumerConfiguration consumerConfig = new HardcodedTCDropConsumerConfiguration();
+
+		Map<DropContextEnum,List<D2TCDropConsumer>> consumersByDropContext = consumerConfig.initializeConsumers(dropContextsFromD2Instances);
+
+		DataSnapshot previousSnapshot = dataSnapshot;
+
 		//InputStream in = new BufferedInputStream(new FileInputStream("C:\\Users\\12063\\streamdata.bin"));
 		InputStream in;
 
-		try {
-			long iteration = 0;
-			long lastTimestamp = 0;
-			ByteBuffer buf;
-			int multidropMessageSize;
-			long multidropIterationInSingleGame;
-			int itemCountInMultidrop;
-			int d2InstanceIndex;
-
-			D2TCDrop tcDrop;
-
-			while (true) {
-				d2InstanceIndex = (int) (iteration % d2InstanceCount);
-				in = inputStreams[d2InstanceIndex];
+		long nextSnapshotTime = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
 
 
-				readFully(in, itemBuffer, 0, 16);
-				buf = ByteBuffer.wrap(itemBuffer).order(ByteOrder.LITTLE_ENDIAN);
-				multidropMessageSize = buf.getInt(0);
-				multidropIterationInSingleGame = buf.getLong(4);
-				itemCountInMultidrop = buf.getInt(12);
+		long iteration = 0;
+		long lastTimestamp = 0;
+		ByteBuffer buf;
+		int multidropMessageSize;
+		long multidropIterationInSingleGame;
+		int itemCountInMultidrop;
+		int d2InstanceIndex;
 
-				readFully(in, itemBuffer, 0, multidropMessageSize - 16);
-				buf = ByteBuffer.wrap(itemBuffer).order(ByteOrder.LITTLE_ENDIAN);
+		D2TCDrop tcDrop;
 
-				tcDrop = D2TCDrop.fromData(itemBuffer, buf, dropContexts[d2InstanceIndex], multidropIterationInSingleGame, itemCountInMultidrop);
+		while (true) {
+			d2InstanceIndex = (int) (iteration % d2InstanceCount);
+			in = inputStreams[d2InstanceIndex];
 
-				//try { Thread.sleep(1000); } catch (InterruptedException e) { throw new RuntimeException(e); }
+
+			readFully(in, itemBuffer, 0, 16);
+			buf = ByteBuffer.wrap(itemBuffer).order(ByteOrder.LITTLE_ENDIAN);
+			multidropMessageSize = buf.getInt(0);
+			multidropIterationInSingleGame = buf.getLong(4);
+			itemCountInMultidrop = buf.getInt(12);
+
+			/*System.out.println("Multidrop iteration " + multidropIterationInSingleGame + ", messageSize " + multidropMessageSize
+					+ " itemCount " + itemCountInMultidrop);*/
+
+			readFully(in, itemBuffer, 0, multidropMessageSize - 16);
+			buf = ByteBuffer.wrap(itemBuffer).order(ByteOrder.LITTLE_ENDIAN);
+
+			tcDrop = D2TCDrop.fromData(itemBuffer, buf, dropContextsByGameIndex[d2InstanceIndex], multidropIterationInSingleGame, itemCountInMultidrop);
+
+			//try { Thread.sleep(1000); } catch (InterruptedException e) { throw new RuntimeException(e); }
 
 
-				iteration++;
 
-				/*
-				if (item.getItem().getQuality() == ItemQuality.RARE) {
-					ObjectMapper jackson = new ObjectMapper();
-					jackson.enable(SerializationFeature.INDENT_OUTPUT);
-					System.out.println(jackson.writeValueAsString(item.getItem()));
-					System.out.println(jackson.writeValueAsString(item.getItem()));
-				} */
-
-				/*
-				try {
-					for (ItemConsumer consumer : consumers) {
-						consumer.consume(itemDrop, stdoutNotifier);
-					}
-				} catch (RuntimeException e) {
-					System.out.println("Failed on item : " + itemDrop.getItem().toLongString());
-					throw e;
-				}
-
-				if (iteration % 100000 == 0) {
-					long newTimestamp = System.nanoTime();
-					System.out.println("" + ((newTimestamp - lastTimestamp)/100_000.0));
-					lastTimestamp = newTimestamp;
-				}
-				*/
-
-/*
-				if (i % 100 == 0) {
-					try { Thread.sleep(1000); } catch (InterruptedException e) { throw new RuntimeException(e); }
-				}
-
-				
-				if (i % 10_000_000 == 0) {
-					useCaseTracker.closeAndGenerateOutput();
-					System.out.println("Printed stats after " + i + " items.");
-				} */
+			for (D2TCDropConsumer consumer : consumersByDropContext.get(dropContextsByGameIndex[d2InstanceIndex])) {
+				consumer.consume(tcDrop);
 			}
-		} catch (Throwable t) {
-			System.out.println(t.getMessage());
-			t.printStackTrace();
-		} finally {
-			for (ItemConsumer consumer : consumers) {
-				consumer.closeAndGenerateOutput();
+			// todo also consume again for special "ALL" dropContext ?
+
+
+			iteration++;
+
+			if (iteration % 1000 == 0 && System.nanoTime() > nextSnapshotTime) {
+				nextSnapshotTime = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+
+				List<SingleDropContextSnapshot> dropContextSnapshots = new ArrayList<>();
+				Map<Long,SerializableD2Item> itemsReferencedInSnapshots = new HashMap<>();
+
+				for (DropContextEnum dropContext : allDropContexts) {
+					Map<String,TCDropConsumerSnapshot> consumerSnapshotsByName = new HashMap<>();
+					if (consumersByDropContext.containsKey(dropContext)) {
+						for (D2TCDropConsumer consumer : consumersByDropContext.get(dropContext)) {
+							DataReferencingItems<TCDropConsumerSnapshot> consumerSnapshot = consumer.takeSnapshot();
+							consumerSnapshot.getItems().forEach(item -> itemsReferencedInSnapshots.put(item.getId(), item.toSerializableD2Item()));
+							consumerSnapshotsByName.put(consumerSnapshot.getData().getName(), consumerSnapshot.getData());
+						}
+					}
+					if (previousSnapshot != null) {
+						Optional<SingleDropContextSnapshot> previousSnapshotForThisDropContext = previousSnapshot.getDropContexts().stream()
+								.filter(x -> x.getDropContextName().equals(dropContext.name())).findFirst();
+						if (previousSnapshotForThisDropContext.isPresent()) {
+							for (TCDropConsumerSnapshot consumerSnapshot : previousSnapshotForThisDropContext.get().getConsumers()) {
+								if (!consumerSnapshotsByName.containsKey(consumerSnapshot.getName())) {
+									consumerSnapshotsByName.put(consumerSnapshot.getName(), consumerSnapshot);
+									for (Long referencedItemId : consumerSnapshot.getReferencedItemIds()) {
+										itemsReferencedInSnapshots.put(referencedItemId, previousSnapshot.getItemsById().get(referencedItemId));
+									}
+								}
+							}
+						}
+					}
+
+
+
+
+					dropContextSnapshots.add(SingleDropContextSnapshot.builder()
+							.dropContextName(dropContext.name())
+							.consumers(List.copyOf(consumerSnapshotsByName.values()))
+							.build());
+				}
+
+				DataSnapshot fullSnapshot = DataSnapshot.builder()
+						.dropContexts(dropContextSnapshots)
+						.itemsById(itemsReferencedInSnapshots)
+						.nextItemId(D2Item.nextId)
+						.build();
+
+				System.out.println("Saving snapshot...");
+				snapshotManager.saveSnapshot(fullSnapshot);
+				System.out.println("Finished saving snapshot...");
+
+				// todo save the snapshot somewhere ?
+				// todo send the snapshot to a different server ?
+
+				previousSnapshot = fullSnapshot;
 			}
 		}
 
@@ -229,7 +206,13 @@ public class D2LootListener {
             throw new IndexOutOfBoundsException();
         int n = 0;
         while (n < len) {
-            int count = in.read(b, off + n, len - n);
+			int count = 0;
+            try {
+				count = in.read(b, off + n, len - n);
+			} catch (Exception e) {
+				throw new RuntimeException("Failed when reading input stream...", e);
+			}
+
             if (count < 0) {
 				System.out.println("End of Stream 2222");
 				try { Thread.sleep(1_000_000_000); } catch (InterruptedException e) { throw new RuntimeException(e); }

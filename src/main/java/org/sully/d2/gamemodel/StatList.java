@@ -2,11 +2,12 @@ package org.sully.d2.gamemodel;
 
 import lombok.Value;
 
+import java.util.List;
 import java.util.Set;
 
 @Value
 public class StatList {
-    StatValue[] stats;
+    List<StatValue> stats;
 
     public int getStat(int statId, int statParam) {
         for (StatValue s : stats) {

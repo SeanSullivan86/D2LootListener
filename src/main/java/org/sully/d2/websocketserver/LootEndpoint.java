@@ -11,9 +11,9 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
-@ServerEndpoint(value = "/loot")
+// @ServerEndpoint(value = "/loot")
 public class LootEndpoint {
-
+/*
     static ObjectMapper jackson = new ObjectMapper();
     private final ClientRequest.Handler messageHandler;
 
@@ -72,5 +72,5 @@ public class LootEndpoint {
     @OnError
     public void onError(Session session, Throwable throwable) {
         throwable.printStackTrace();
-    }
+    } */
 }

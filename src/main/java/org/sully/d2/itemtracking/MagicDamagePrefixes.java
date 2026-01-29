@@ -5,7 +5,8 @@ import org.sully.d2.gamemodel.enums.ItemQuality;
 
 import java.util.function.Consumer;
 
-public class MagicDamagePrefixes implements ItemConsumer {
+public class MagicDamagePrefixes  {
+	/*
 	int savage;
 	int merciless;
 	int ferocious;
@@ -34,6 +35,6 @@ public class MagicDamagePrefixes implements ItemConsumer {
 		System.out.println("Merciless : " + merciless);
 		System.out.println("Ferocious : " + ferocious);
 		System.out.println("Cruel : " + cruel);
-	}
+	}*/
 	
 }

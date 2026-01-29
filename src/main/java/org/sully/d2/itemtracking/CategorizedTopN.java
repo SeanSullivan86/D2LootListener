@@ -1,45 +1,146 @@
 package org.sully.d2.itemtracking;
 
+import lombok.Builder;
+import lombok.Getter;
+import lombok.Value;
 import org.sully.d2.gamemodel.D2Item;
 import org.sully.d2.gamemodel.enums.ItemQuality;
 import org.sully.d2.gamemodel.staticgamedata.D2ItemType;
 import org.sully.d2.gamemodel.staticgamedata.D2ItemTypeType;
 
-import java.io.PrintWriter;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.*;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
-public class ItemUseCase {
-	final List<String> applicableItemCodes;
-	final List<ItemQuality> applicableItemQualities;
+@Value
+@Builder
+class CategorizedTopNSnapshot implements TCDropConsumerSnapshot {
+
+	Map<String, TopNAndDistributionSnapshot> categories;
+	long totalIterations;
+	long countMatchingItemCodeAndQuality;
+	long countMatchingAdditionalCriteria;
+	String name;
+
+	@Override
+	public Set<Long> getReferencedItemIds() {
+		Set<Long> x = new HashSet<>();
+		for (TopNAndDistributionSnapshot topN : categories.values()) {
+			x.addAll(topN.getTopItemIds());
+		}
+		return x;
+	}
+
+
+	@Value
+	@Builder
+	static class TopNAndDistributionSnapshot {
+		Map<Integer,Long> scoreDistribution;
+		List<Long> topItemIds;
+		List<Integer> topScores;
+	}
+}
+
+public class CategorizedTopN implements D2TCDropConsumer {
+	final Set<String> applicableItemCodes;
+	final Set<ItemQuality> applicableItemQualities;
 	final Predicate<D2Item> additionalCriteria;
 	
-	final String name;
+	@Getter
+    final String name;
 	final Function<D2Item,String> categorizer;
 	final Function<D2Item,Integer> scoringFunction;
 	final int keepTopNItemsPerCategory;
 	
 	// stats
+
 	long countMatchingItemCodeAndQuality = 0;
 	long countMatchingAdditionalCriteria = 0;
-	Map<String, TopNAndScoreDistribution<D2Item>> statsByCategory = new ConcurrentHashMap<>();
+	Map<String, TopNAndScoreDistribution> statsByCategory = new HashMap<>();
+	@Getter
+	long totalIterations = 0;
 
-	public String getName() {
-		return name;
+	@Override
+	public void initializeFromSnapshot(TCDropConsumerSnapshot untypedSnapshot, Map<Long, D2Item> itemsById) {
+		CategorizedTopNSnapshot snapshot = (CategorizedTopNSnapshot) untypedSnapshot;
+		this.countMatchingItemCodeAndQuality = snapshot.getCountMatchingItemCodeAndQuality();
+		this.countMatchingAdditionalCriteria = snapshot.getCountMatchingAdditionalCriteria();
+		this.totalIterations = snapshot.getTotalIterations();
+		this.statsByCategory = new HashMap<>();
+
+		for (Map.Entry<String, CategorizedTopNSnapshot.TopNAndDistributionSnapshot> e : snapshot.getCategories().entrySet()) {
+			String category = e.getKey();
+			CategorizedTopNSnapshot.TopNAndDistributionSnapshot topNSnapshot = e.getValue();
+			TopNAndScoreDistribution topN = new TopNAndScoreDistribution(this.keepTopNItemsPerCategory);
+			int itemCount = topNSnapshot.getTopScores().size();
+			for (int i = 0; i < itemCount; i++) {
+				topN.consume(itemsById.get(topNSnapshot.getTopItemIds().get(i)), topNSnapshot.getTopScores().get(i));
+			}
+			topN.overrideScoreDistribution(topNSnapshot.getScoreDistribution());
+			statsByCategory.put(category, topN);
+		}
+
 	}
 
-	public List<String> getCategories() {
+	@Override
+	public void consume(D2TCDrop tcDrop) {
+		this.totalIterations++;
+
+		for (D2Item item : tcDrop.getItems()) {
+			if (this.applicableItemQualities.contains(item.getQuality()) && this.applicableItemCodes.contains(item.getItemTypeCode())) {
+				this.countMatchingItemCodeAndQuality++;
+
+				if (this.additionalCriteria.test(item)) {
+					this.countMatchingAdditionalCriteria++;
+
+					String category = categorizer.apply(item);
+					int score = scoringFunction.apply(item);
+
+					if (!statsByCategory.containsKey(category)) {
+						statsByCategory.put(category, new TopNAndScoreDistribution(this.keepTopNItemsPerCategory));
+					}
+					statsByCategory.get(category).consume(item, score);
+				}
+			}
+		}
+	}
+
+	@Override
+	public DataReferencingItems<TCDropConsumerSnapshot> takeSnapshot() {
+		List<D2Item> items = new ArrayList<>();
+		Map<String, CategorizedTopNSnapshot.TopNAndDistributionSnapshot> categorySnapshots = new HashMap<>();
+		for (String category : statsByCategory.keySet()) {
+			List<Long> topItemIds = new ArrayList<>();
+			List<Integer> topScores = new ArrayList<>();
+
+			TopNAndScoreDistribution topN = statsByCategory.get(category);
+			for (ItemAndScore item : topN.getTopN()) {
+				topItemIds.add(item.getItem().getId());
+				items.add(item.getItem());
+				topScores.add(item.getScore());
+			}
+			categorySnapshots.put(category, CategorizedTopNSnapshot.TopNAndDistributionSnapshot.builder()
+					.topItemIds(topItemIds)
+					.topScores(topScores)
+					.scoreDistribution(new HashMap<>(topN.getScoreDistribution()))
+					.build());
+		}
+		return DataReferencingItems.<TCDropConsumerSnapshot>builder()
+				.items(items)
+				.data(CategorizedTopNSnapshot.builder()
+						.categories(categorySnapshots)
+						.totalIterations(totalIterations)
+						.countMatchingItemCodeAndQuality(countMatchingItemCodeAndQuality)
+						.countMatchingAdditionalCriteria(countMatchingAdditionalCriteria)
+						.build())
+				.build();
+	}
+
+    public List<String> getCategories() {
 		return new ArrayList<>(statsByCategory.keySet());
 	}
 
+	/*
 	public List<ItemAndScore<D2Item>> getTopN(String category) {
 		if (statsByCategory.containsKey(category)) {
 			return statsByCategory.get(category).getTopN();
@@ -52,23 +153,9 @@ public class ItemUseCase {
 			return statsByCategory.get(category).getScoreDistribution();
 		}
 		return null;
-	}
+	} */
 	
-	public void consumeItemKnownToMatchItemCodeAndQuality(D2Item item) {
-		this.countMatchingItemCodeAndQuality++;
-		
-		if (this.additionalCriteria.test(item)) {
-			this.countMatchingAdditionalCriteria++;
-			
-			String category = categorizer.apply(item);
-			int score = scoringFunction.apply(item);
-			
-			if (!statsByCategory.containsKey(category)) {
-				statsByCategory.put(category, new TopNAndScoreDistribution<D2Item>(this.keepTopNItemsPerCategory));
-			}
-			statsByCategory.get(category).consume(item, score);
-		}
-	}
+/*
 	
 	public void printOverallCounts(PrintWriter out) {
 		out.println(String.join("\t", name, ""+this.countMatchingItemCodeAndQuality, ""+this.countMatchingAdditionalCriteria));
@@ -86,12 +173,12 @@ public class ItemUseCase {
 			TopNAndScoreDistribution<D2Item> topN = statsByCategory.get(category);
 			topN.printScoreDistribution(out, name + "\t" + category + "\t");
 		}
-	}
+	} */
 
 	
-	private ItemUseCase(List<String> applicableItemCodes, List<ItemQuality> applicableItemQualities,
-			Predicate<D2Item> additionalCriteria, String name, Function<D2Item, String> categorizer,
-			Function<D2Item, Integer> scoringFunction, int keepTopNItemsPerCategory) {
+	private CategorizedTopN(Set<String> applicableItemCodes, Set<ItemQuality> applicableItemQualities,
+							Predicate<D2Item> additionalCriteria, String name, Function<D2Item, String> categorizer,
+							Function<D2Item, Integer> scoringFunction, int keepTopNItemsPerCategory) {
 		this.applicableItemCodes = applicableItemCodes;
 		this.applicableItemQualities = applicableItemQualities;
 		this.additionalCriteria = additionalCriteria;
@@ -104,7 +191,9 @@ public class ItemUseCase {
 	public static Builder named(String name) {
 		return new Builder(name);
 	}
-	
+
+
+
 	public static class Builder {
 		Set<D2ItemTypeType> allowedItemTypeTypes = new HashSet<>();
 		Set<String> allowedItemTypeCodes = new HashSet<>();
@@ -122,8 +211,8 @@ public class ItemUseCase {
 			this.name = name;
 		}
 		
-		public ItemUseCase build() {
-			List<String> finalizedItemTypeCodes = new ArrayList<>();
+		public CategorizedTopN build() {
+			Set<String> finalizedItemTypeCodes = new HashSet<>();
 			
 			// iterate through item types to find out which ones are applicable to this use case
 			for (D2ItemType itemType : D2ItemType.allItemTypes()) {
@@ -156,7 +245,7 @@ public class ItemUseCase {
 				throw new RuntimeException("No item qualities allowed for use case : " + name);
 			}
 			
-			return new ItemUseCase(finalizedItemTypeCodes, new ArrayList<ItemQuality>(this.applicableItemQualities),
+			return new CategorizedTopN(finalizedItemTypeCodes, this.applicableItemQualities,
 				this.additionalCriteria, this.name, this.categorizer, this.scoringFunction, this.keepTopNItemsPerCategory);
 		}
 		

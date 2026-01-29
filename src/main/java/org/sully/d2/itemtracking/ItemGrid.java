@@ -1,46 +1,107 @@
 package org.sully.d2.itemtracking;
 
-import lombok.Builder;
-import lombok.Value;
+import lombok.Getter;
 import org.sully.d2.gamemodel.D2Item;
 import org.sully.d2.util.Pair;
 
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.PrintWriter;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
+/**
+ * Uses the same format (ItemGridSnapshot) for both the full snapshots and incremental Updates.
+ * When used as an update/checkpoint, ItemGridSnapshot still contains the cumulative totals,
+ * not just the incremental numbers since the previous checkpoint. So applying the update
+ * just means overwriting all the data in the Item Grid.
+ */
+public class ItemGrid implements D2TCDropConsumer {
 
-public class ItemGrid<RowValue,ColumnValue> implements ItemConsumer {
 
-	private String name;
-	private Function<D2Item,RowValue> rowValueFunc;
-	private Function<D2Item,ColumnValue> columnValueFunc;
+	private Function<D2Item,String> rowValueFunc;
+	private Function<D2Item,String> columnValueFunc;
 	private Predicate<D2Item> filter;
-	private Function<RowValue,String> rowValueDisplayFunc;
-	private Function<ColumnValue,String> columnValueDisplayFunc;
-	private Comparator<RowValue> rowComparator;
-	private Comparator<ColumnValue> columnComparator;
-	private File outputLocation;
-	
-	private Map<Pair<RowValue,ColumnValue>,Long> counts;
+	private Function<String,String> rowValueDisplayFunc;
+	private Function<String,String> columnValueDisplayFunc;
+	private Comparator<String> rowComparator;
+	private Comparator<String> columnComparator;
+
+	private Map<Pair<String,String>,Long> counts;
+
+	@Getter
+	private String name;
+
+	@Getter
+	private long totalIterations;
+
+
+	@Override
+	public void initializeFromSnapshot(TCDropConsumerSnapshot snapshotUntyped, Map<Long, D2Item> itemsById) {
+		ItemGridSnapshot snapshot = (ItemGridSnapshot) snapshotUntyped;
+
+		counts = new HashMap<>();
+		int rowCount = snapshot.getRowValues().size();
+		int columnCount = snapshot.getColumnValues().size();
+		for (int row = 0; row < rowCount; row++) {
+			for (int col = 0; col < columnCount; col++) {
+				incrementCount(snapshot.getRowValues().get(row), snapshot.getColumnValues().get(col), snapshot.getCounts()[row][col]);
+			}
+		}
+		this.totalIterations = snapshot.getTotalIterations();
+	}
+
+	@Override
+	public void consume(D2TCDrop tcDrop) {
+		this.totalIterations++;
+		for (D2Item item : tcDrop.getItems()) {
+			if (filter != null && !filter.test(item)) {
+				continue;
+			}
+			incrementCount(rowValueFunc.apply(item), columnValueFunc.apply(item), 1L);
+		}
+	}
+
+	@Override
+	public DataReferencingItems<TCDropConsumerSnapshot> takeSnapshot() {
+		NavigableSet<String> rowValueSet = new TreeSet<>(rowComparator);
+		NavigableSet<String> columnValueSet = new TreeSet<>(columnComparator);
+
+		for(Pair<String,String> key : counts.keySet()) {
+			rowValueSet.add(key.getA());
+			columnValueSet.add(key.getB());
+		}
+		List<String> rowValues = new ArrayList<>(rowValueSet);
+		List<String> columnValues = new ArrayList<>(columnValueSet);
+
+		long[][] countMatrix = new long[rowValues.size()][columnValues.size()];
+		for (int r = 0; r < rowValues.size(); r++) {
+			for (int c = 0; c < columnValues.size(); c++) {
+				countMatrix[r][c] = counts.getOrDefault(Pair.of(rowValues.get(r), columnValues.get(c)), 0L);
+			}
+		}
+
+		return DataReferencingItems.<TCDropConsumerSnapshot>builder()
+				.items(List.of())
+				.data(ItemGridSnapshot.builder()
+						.rowValues(rowValues)
+						.columnValues(columnValues)
+						.counts(countMatrix)
+						.totalIterations(totalIterations)
+						.name(name)
+						.build())
+				.build();
+	}
 
 	public ItemGridCounts getCounts() {
-		NavigableSet<RowValue> rowValuesSet = new TreeSet<>(rowComparator);
-		NavigableSet<ColumnValue> columnValuesSet = new TreeSet<>(columnComparator);
+		NavigableSet<String> rowValuesSet = new TreeSet<>(rowComparator);
+		NavigableSet<String> columnValuesSet = new TreeSet<>(columnComparator);
 
-		for(Pair<RowValue,ColumnValue> key : counts.keySet()) {
+		for(Pair<String,String> key : counts.keySet()) {
 			rowValuesSet.add(key.getA());
 			columnValuesSet.add(key.getB());
 		}
 
-		List<RowValue> rowValues = List.copyOf(rowValuesSet);
-		List<ColumnValue> columnValues = List.copyOf(columnValuesSet);
+		List<String> rowValues = List.copyOf(rowValuesSet);
+		List<String> columnValues = List.copyOf(columnValuesSet);
 		long[][] countMatrix = new long[rowValues.size()][columnValues.size()];
 		long[] rowTotals = new long[rowValues.size()];
 		long[] columnTotals = new long[columnValues.size()];
@@ -65,10 +126,10 @@ public class ItemGrid<RowValue,ColumnValue> implements ItemConsumer {
 	
 	
 
-	public ItemGrid(String name, Function<D2Item, RowValue> rowValueFunc, Function<D2Item, ColumnValue> columnValueFunc,
-			Predicate<D2Item> filter, Function<RowValue, String> rowValueDisplayFunc,
-			Function<ColumnValue, String> columnValueDisplayFunc, Comparator<RowValue> rowComparator,
-			Comparator<ColumnValue> columnComparator, File outputLocation) {
+	public ItemGrid(String name, Function<D2Item, String> rowValueFunc, Function<D2Item, String> columnValueFunc,
+			Predicate<D2Item> filter, Function<String, String> rowValueDisplayFunc,
+			Function<String, String> columnValueDisplayFunc, Comparator<String> rowComparator,
+			Comparator<String> columnComparator) {
 		this.name = name;
 		this.rowValueFunc = rowValueFunc;
 		this.columnValueFunc = columnValueFunc;
@@ -77,31 +138,25 @@ public class ItemGrid<RowValue,ColumnValue> implements ItemConsumer {
 		this.columnValueDisplayFunc = columnValueDisplayFunc;
 		this.rowComparator = rowComparator;
 		this.columnComparator = columnComparator;
-		this.outputLocation = outputLocation;
-		this.counts = new ConcurrentHashMap<>();
+		this.counts = new HashMap<>();
 	}
 
-	@Override
-	public void consume(D2Item item, ItemNotifier notifier) {
-		if (filter != null && !filter.test(item)) {
-			return;
-		}
-		incrementCount(rowValueFunc.apply(item), columnValueFunc.apply(item));
-	}
 
+
+	/*
 	@Override
 	public void closeAndGenerateOutput() {
-		NavigableSet<RowValue> rowValues = new TreeSet<>(rowComparator); 
-		NavigableSet<ColumnValue> columnValues = new TreeSet<>(columnComparator);
+		NavigableSet<String> rowValues = new TreeSet<>(rowComparator);
+		NavigableSet<String> columnValues = new TreeSet<>(columnComparator);
 		
-		for(Pair<RowValue,ColumnValue> key : counts.keySet()) {
+		for(Pair<String,String> key : counts.keySet()) {
 			rowValues.add(key.getA());
 			columnValues.add(key.getB());
 		}
 		
 		try (PrintWriter out = new PrintWriter(new FileWriter(outputLocation))) {
 			// Header row
-			for (ColumnValue c : columnValues) {
+			for (String c : columnValues) {
 				out.print('\t');
 				out.print(columnValueDisplayFunc.apply(c));
 			}
@@ -109,11 +164,11 @@ public class ItemGrid<RowValue,ColumnValue> implements ItemConsumer {
 			
 			long grandTotal = 0;
 			long[] columnTotals = new long[columnValues.size()];
-			for (RowValue r : rowValues) {
+			for (String r : rowValues) {
 				long rowTotal = 0;
 				out.print(rowValueDisplayFunc.apply(r));
 				int columnIndex = 0;
-				for (ColumnValue c : columnValues) {
+				for (String c : columnValues) {
 					long val = counts.getOrDefault(Pair.of(r, c), 0L);
 					rowTotal += val;
 					columnTotals[columnIndex] += val;
@@ -138,18 +193,15 @@ public class ItemGrid<RowValue,ColumnValue> implements ItemConsumer {
 			throw new RuntimeException(e);
 		}
 	}
-	
-	private void incrementCount(RowValue r, ColumnValue c) {
-	    Pair<RowValue,ColumnValue> key = Pair.of(r, c);
-	    if (counts.containsKey(key)) {
-	    	counts.put(key,  counts.get(key) + 1);
-	    } else {
-	    	counts.put(key, 1L);
-	    }
+	*/
+
+	private void incrementCount(String r, String c, long amount) {
+		Pair<String,String> key = Pair.of(r, c);
+		if (counts.containsKey(key)) {
+			counts.put(key,  counts.get(key) + amount);
+		} else {
+			counts.put(key, amount);
+		}
 	}
 
-	public String getName() {
-		return name;
-	}
-	
 }

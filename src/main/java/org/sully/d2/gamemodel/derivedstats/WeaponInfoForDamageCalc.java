@@ -9,6 +9,8 @@ import org.sully.d2.gamemodel.StatList;
 import org.sully.d2.gamemodel.StatValue;
 import org.sully.d2.gamemodel.staticgamedata.D2ItemType;
 
+import java.util.List;
+
 @Value
 @Builder(toBuilder = true)
 @AllArgsConstructor
@@ -90,7 +92,7 @@ public class WeaponInfoForDamageCalc {
         StatValue maxDamagePct = StatValue.of(17, 0, 40*remainingSockets);
         StatValue minDamagePct = StatValue.of(18, 0, 40*remainingSockets);
 
-        StatList statList = new StatList(new StatValue[] {ias, maxDamagePct, minDamagePct });
+        StatList statList = new StatList(List.of(ias, maxDamagePct, minDamagePct));
 
         return this.toBuilder()
                 .filledSockets(totalSockets)

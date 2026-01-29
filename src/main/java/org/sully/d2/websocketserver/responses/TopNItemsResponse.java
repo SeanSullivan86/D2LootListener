@@ -12,8 +12,11 @@ import java.util.List;
 @Value
 @Builder
 public class TopNItemsResponse implements ServerResponse{
+    /*
     String requestId;
     List<ItemAndScore<D2Item>> diffToFillTopN;
     int n;
+
+     */
 }
 

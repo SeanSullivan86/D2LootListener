@@ -4,11 +4,12 @@ import lombok.Builder;
 import lombok.Value;
 import org.sully.d2.gamemodel.D2Item;
 
+import java.util.List;
+
 @Value
 @Builder
-public class BasicStats {
-    D2Item[] mostRecentItemsByQuality;
-    long[] countsByQuality;
-    long runtimeMs;
-    long dropCount;
+public class DataReferencingItems<T> {
+
+    T data;
+    List<D2Item> items;
 }
