@@ -44,12 +44,12 @@ public class TopNAndScoreDistribution {
 		consume(item, value, false);
 	}
 
-	public void consume(D2Item item, int value) {
-		consume(item, value, true);
+	public int consume(D2Item item, int value) {
+		return consume(item, value, true);
 	}
 
-	public void consume(D2Item item, int value, boolean updateScoreDistribution) {
-
+	public int consume(D2Item item, int value, boolean updateScoreDistribution) {
+		int newRank = 0;
 		if (topN.size() < this.n || value > minScoreForTopN) {
 			ItemAndScore newEntry = new ItemAndScore(item, value);
 
@@ -59,6 +59,15 @@ public class TopNAndScoreDistribution {
 			}
 
 			this.minScoreForTopN = topN.last().getScore();
+
+			int i = 0;
+			for (ItemAndScore itemAndScore : topN) {
+				if (itemAndScore.getScore() == newEntry.getScore()) {
+					newRank = i + 1;
+					break;
+				}
+				i++;
+			}
 		}
 
 		if (updateScoreDistribution) {
@@ -69,6 +78,7 @@ public class TopNAndScoreDistribution {
 			}
 		}
 
+		return newRank;
 
 	}
 

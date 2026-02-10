@@ -31,5 +31,4 @@ public class SerializableD2Item {
     // weaponInfoForDamageCalc
     // uniqueItem
     // itemTypeType
-
 }

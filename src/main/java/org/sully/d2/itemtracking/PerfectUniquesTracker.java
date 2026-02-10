@@ -1,5 +1,7 @@
 package org.sully.d2.itemtracking;
 
+import lombok.Getter;
+import org.sully.d2.SerializableD2Item;
 import org.sully.d2.gamemodel.D2Item;
 import org.sully.d2.gamemodel.enums.ItemQuality;
 import org.sully.d2.gamemodel.staticgamedata.D2UniqueItem;
@@ -13,8 +15,15 @@ import java.util.Map;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
-public class PerfectUniquesTracker /* implements ItemConsumer */ {
-/*    final Map<String, D2UniqueItem> remainingPerfectNonEthUniques = new HashMap<>();
+public class PerfectUniquesTracker /* implements D2TCDropConsumer */ {
+/*
+    @Getter
+    long totalIterations = 0L;
+
+    @Getter
+    String name;
+
+    final Map<String, D2UniqueItem> remainingPerfectNonEthUniques = new HashMap<>();
     final Map<String, D2UniqueItem> remainingPerfectEthUniques = new HashMap<>();
     final Map<String, D2Item> foundPerfectNonEthUniques = new LinkedHashMap<>();
     final Map<String, D2Item> foundPerfectEthUniques = new LinkedHashMap<>();
@@ -31,6 +40,21 @@ public class PerfectUniquesTracker /* implements ItemConsumer */ {
         System.out.println("There are " + D2UniqueItem.getSpawnableUniquesBelowIlvl100().size() + " spawnable uniques below qlvl 100");
         System.out.println("There are " + remainingPerfectNonEthUniques.size() + " possible non-eth uniques");
         System.out.println("There are " + remainingPerfectEthUniques.size() + " possible ethereal uniques");
+    }
+
+    @Override
+    public void initializeFromSnapshot(TCDropConsumerSnapshot snapshot, Map<Long, SerializableD2Item> itemsById) {
+
+    }
+
+    @Override
+    public void consume(D2TCDrop tcDrop) {
+
+    }
+
+    @Override
+    public DataReferencingItems<TCDropConsumerSnapshot> takeSnapshot() {
+        return null;
     }
 
 
@@ -90,5 +114,7 @@ public class PerfectUniquesTracker /* implements ItemConsumer */ {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-    } */
+    }
+
+*/
 }

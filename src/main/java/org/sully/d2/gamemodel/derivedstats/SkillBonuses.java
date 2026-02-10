@@ -26,6 +26,15 @@ public class SkillBonuses {
         return !skillTabBonuses.isEmpty();
     }
 
+    public int getIndividualSkillBonusWithoutTabOrCharacterClassSkillAffixes(D2Skill skill) {
+        for (IndividualSkillBonus individualSkillBonus : individualSkillBonuses) {
+            if (individualSkillBonus.skill.getId() == skill.getId()) {
+                return individualSkillBonus.getSkillLevelBonus();
+            }
+        }
+        return 0;
+    }
+
     public SkillTabBonus getSkillTabBonus(SkillTab skillTab) {
         for (SkillBonuses.SkillTabBonus skillTabBonus : skillTabBonuses) {
             if (skillTabBonus.getSkillTab() == skillTab) {

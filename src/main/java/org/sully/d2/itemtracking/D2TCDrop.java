@@ -12,11 +12,10 @@ import java.util.List;
 @Builder(builderClassName = "Builder", toBuilder = true)
 public class D2TCDrop {
     DropContextEnum dropContext;
-    long dropIteration; // on which iteration of simulating killing the monster did this item drop
 
     List<D2Item> items;
 
-    public static D2TCDrop fromData(byte[] data, ByteBuffer buf, DropContextEnum dropContext, long iteration, int itemCount) {
+    public static D2TCDrop fromData(byte[] data, ByteBuffer buf, DropContextEnum dropContext, int itemCount) {
 
         // offset 0 has the singleItem messageLength
         int previousMessageLengths = 0;
@@ -31,7 +30,6 @@ public class D2TCDrop {
         return D2TCDrop.builder()
                 .dropContext(dropContext)
                 .items(items)
-                .dropIteration(iteration)
                 .build();
     }
 

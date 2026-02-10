@@ -7,20 +7,15 @@ import lombok.Value;
 import org.sully.d2.SerializableD2Item;
 import org.sully.d2.gamemodel.derivedstats.WeaponInfoForDamageCalc;
 import org.sully.d2.gamemodel.derivedstats.SkillBonuses;
+import org.sully.d2.gamemodel.enums.CharacterClass;
 import org.sully.d2.gamemodel.enums.ItemQuality;
 import org.sully.d2.gamemodel.enums.SkillTab;
-import org.sully.d2.gamemodel.staticgamedata.D2ItemType;
-import org.sully.d2.gamemodel.staticgamedata.D2ItemTypeType;
-import org.sully.d2.gamemodel.staticgamedata.D2Skill;
-import org.sully.d2.gamemodel.staticgamedata.D2UniqueItem;
+import org.sully.d2.gamemodel.staticgamedata.*;
 import org.sully.d2.itemtracking.DropContextEnum;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 @Value
 @Builder
@@ -51,7 +46,6 @@ public class D2Item {
 	StatList stats;
 
 	DropContextEnum dropContext;
-	long dcIteration;
 
 
 
@@ -87,11 +81,28 @@ public class D2Item {
 		return skillBonuses.getSkillTabBonus(skillTab);
 	}
 
+	public int getSkillTabBonusLevel(SkillTab skillTab) {
+		return Optional.ofNullable(skillBonuses.getSkillTabBonus(skillTab))
+				.map(SkillBonuses.SkillTabBonus::getSkillLevelBonus).orElse(0);
+	}
+
+	public int getClassSkillBonusLevel(CharacterClass characterClass) {
+		for (SkillBonuses.ClassSkillBonus bonus : skillBonuses.getClassSkillBonuses()) {
+			if (bonus.getCharacterClass() == characterClass) {
+				return bonus.getSkillLevelBonus();
+			}
+		}
+		return 0;
+	}
+
+	public int getIndividualSkillBonusWithoutTabOrCharacterClassSkillAffixes(D2Skill skill) {
+		return skillBonuses.getIndividualSkillBonusWithoutTabOrCharacterClassSkillAffixes(skill);
+	}
+
 	public SerializableD2Item toSerializableD2Item() {
 		return SerializableD2Item.builder()
 				.id(id)
 				.dropContext(dropContext)
-				.dcIteration(dcIteration)
 				.quality(quality)
 				.name(name)
 				.description(description)
@@ -106,8 +117,8 @@ public class D2Item {
 
 	public static D2Item fromSerializableD2Item(SerializableD2Item input) {
 		D2ItemBuilder item = D2Item.builder();
+		item.id = input.getId();
 		item.itemType = D2ItemType.fromCode(input.getItemTypeCode());
-
 
 		item.itemTypeType = item.itemType.getItemTypeType();
 		item.quality = input.getQuality();
@@ -132,6 +143,8 @@ public class D2Item {
 		}
 		return item.build();
 	}
+
+	static Set<Integer> statsSeen = new HashSet<>();
 	
 	public static D2Item fromData(byte[] data, ByteBuffer buf, int offset) {
 
@@ -171,6 +184,8 @@ public class D2Item {
 			for (int i = 0; i < 6; i++) {
 				System.out.println("Affix ID : " + buf.getShort(offset + 26 + 2*i));
 			} */
+
+
 		}
 
 
@@ -200,6 +215,23 @@ public class D2Item {
 
 		item.skillBonuses = SkillBonuses.deriveSkillBonusesFromStats(item.stats);
 
+		/*
+		if (item.quality == ItemQuality.NORMAL || item.quality == ItemQuality.MAGIC || item.quality == ItemQuality.RARE) {
+			for (StatValue stat : stats) {
+				if (!statsSeen.contains(stat.statId)) {
+					statsSeen.add(stat.statId);
+					System.out.println(statsSeen.size() + " : New stat " + stat.statId + " param " + stat.statParam + " value = " + stat.statValue);
+					System.out.println(String.join("\t",
+							item.itemTypeType.getCode(),
+							item.itemType.getName(),
+							item.quality.name(),
+							item.name,
+							item.ethereal ? "eth" : "",
+							""+item.sockets,
+							item.description));
+				}
+			}
+		} */
 
 		if (item.quality == ItemQuality.UNIQUE) {
 			item.uniqueItem = D2UniqueItem.getFromItem(item.itemType, item.stats, item.name);
@@ -227,11 +259,54 @@ public class D2Item {
 	}
 
 
+
 	public String getItemTypeCode() {
 		return itemType.getCode();
 	}
 
 	public String getItemTypeName() {
 		return itemType.getName();
+	}
+
+	public int getCasterValueForRareArmorOrJewelry() {
+		double result = 0.0;
+		if (! skillBonuses.getClassSkillBonuses().isEmpty()) {
+			SkillBonuses.ClassSkillBonus classSkillBonus = skillBonuses.getClassSkillBonuses().getFirst();
+			if (classSkillBonus.getCharacterClass() == CharacterClass.SORCERESS ||
+					classSkillBonus.getCharacterClass() == CharacterClass.NECROMANCER ||
+					classSkillBonus.getCharacterClass() == CharacterClass.DRUID) {
+				result += 100.0 * classSkillBonus.getSkillLevelBonus();
+			}
+		}
+		result += stats.getStat(D2ItemStats.LIGHTNING_RESIST.statId);
+		result += stats.getStat(D2ItemStats.FIRE_RESIST.statId);
+		result += stats.getStat(D2ItemStats.COLD_RESIST.statId);
+		result += stats.getStat(D2ItemStats.POISON_RESIST.statId) * 0.3;
+		result += stats.getStat(D2ItemStats.STRENGTH.statId) * 0.5;
+		result += stats.getStat(D2ItemStats.DEXTERITY.statId) * 0.1;
+		result += stats.getStat(D2ItemStats.VITALITY.statId) * 0.67;
+		result += stats.getStat(D2ItemStats.ENERGY.statId) * 0.67;
+		result += stats.getStat(D2ItemStats.LIFE.statId)/256.0 * 0.3;
+		result += stats.getStat(D2ItemStats.MANA.statId)/256.0 * 0.3;
+		result += stats.getStat(D2ItemStats.LIFE_PER_LEVEL.statId)/256.0/8.0*90.0 * 0.3;
+		result += stats.getStat(D2ItemStats.MANA_PER_LEVEL.statId)/256.0/8.0*90.0 * 0.3;
+		result += stats.getStat(D2ItemStats.MANA_AFTER_EACH_KILL.statId) * 4.0;
+		result += stats.getStat(D2ItemStats.FASTER_HIT_RECOVERY.statId) * (20.0/24.0);
+		result += stats.getStat(D2ItemStats.FASTER_CAST_RATE.statId) * 8.0;
+		result += stats.getStat(D2ItemStats.MAGIC_FIND.statId) * 0.5;
+		result += stats.getStat(D2ItemStats.DAMAGE_REDUCTION.statId) * 0.75;
+		result += stats.getStat(D2ItemStats.MAGIC_DAMAGE_REDUCTION.statId) * 0.75;
+		result += stats.getStat(D2ItemStats.FASTER_RUN_WALK_SPEED.statId) * 2.0;
+
+		if (sockets > 1 && (quality == ItemQuality.RARE || quality == ItemQuality.SET || quality == ItemQuality.UNIQUE)) {
+			result += (sockets - 1)*120.0;
+		} else if (sockets > 2 && quality == ItemQuality.MAGIC) {
+			result += (sockets - 2)*120.0;
+		}
+		return (int) result;
+	}
+
+	public int getPlusLifeStat() {
+		return getStat(D2ItemStats.LIFE.statId)/256;
 	}
 }

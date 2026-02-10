@@ -2,6 +2,7 @@ package org.sully.d2.itemtracking;
 
 import lombok.Builder;
 import lombok.Value;
+import org.sully.d2.server.ConsumerSummary;
 
 import java.util.List;
 import java.util.Set;
@@ -20,5 +21,14 @@ public class ItemGridSnapshot implements TCDropConsumerSnapshot {
 	@Override
 	public Set<Long> getReferencedItemIds() {
 		return Set.of();
+	}
+
+	@Override
+	public ConsumerSummary toSummaryObject() {
+		return ConsumerSummary.builder()
+				.consumerName(name)
+				.consumerType(this.getClass().getSimpleName())
+				.additionalInfo(null)
+				.build();
 	}
 }

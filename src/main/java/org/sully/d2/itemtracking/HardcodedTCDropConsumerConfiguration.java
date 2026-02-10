@@ -49,65 +49,132 @@ public class HardcodedTCDropConsumerConfiguration {
 
         allConsumers.add(new BasicStatsConsumer("Basic Stats"));
 
-        Set<Integer> threeSocketCircletStats = D2ItemStats.getStatIds(D2ItemStats.FASTER_RUN_WALK_SPEED,
-                D2ItemStats.DEXTERITY, D2ItemStats.LIFE, D2ItemStats.DAMAGE_REDUCTION, D2ItemStats.FASTER_CAST_RATE, D2ItemStats.STRENGTH);
-        allConsumers.add(CategorizedTopN.named("Three Socket Magic Circlets")
-                .addItemTypeTypeCodes("circ")
-                .allowItemQualities(ItemQuality.MAGIC)
-                .withAdditionalItemCriteria(item -> item.getSockets() >= 3 && item.hasAtLeastOneOfTheseStats(threeSocketCircletStats))
-                .withCategorizer(D2Item::getName)
-                .withScoringFunction(item -> 1)
-                .withCountOfTopScoringItemsToKeepInEachCategory(2)
-                .build());
+        allConsumers.add(new AssortedMagicItemsConsumer("Magic Items"));
+
 
         allConsumers.add(CategorizedTopN.named("Tri-Res Boots")
                 .addItemTypeTypeCodes("boot")
                 .allowItemQualities(ItemQuality.RARE)
                 .withAdditionalItemCriteria(item ->
-                        ((item.hasStat(D2ItemStats.FIRE_RESIST.statId) ? 1 : 0) +
-                                (item.hasStat(D2ItemStats.LIGHTNING_RESIST.statId) ? 1 : 0) +
-                                (item.hasStat(D2ItemStats.COLD_RESIST.statId) ? 1 : 0)  /* +
-                    (item.hasStat(D2ItemStats.POISON_RESIST.statId) ? 1 : 0) */) >= 3)
+                        item.hasStat(D2ItemStats.FIRE_RESIST.statId) &&
+                        item.hasStat(D2ItemStats.LIGHTNING_RESIST.statId) &&
+                        item.hasStat(D2ItemStats.COLD_RESIST.statId))
                 .withCategorizer(item -> "All")
                 .withScoringFunction(item ->
-                        item.getStat(D2ItemStats.MAGIC_FIND.statId) +
-                                item.getStat(D2ItemStats.FASTER_RUN_WALK_SPEED.statId) +
                                 item.getStat(D2ItemStats.FIRE_RESIST.statId) +
                                 item.getStat(D2ItemStats.LIGHTNING_RESIST.statId) +
-                                item.getStat(D2ItemStats.COLD_RESIST.statId) /* +
-                    item.getStat(D2ItemStats.POISON_RESIST.statId) */)
-                .withCountOfTopScoringItemsToKeepInEachCategory(20)
+                                item.getStat(D2ItemStats.COLD_RESIST.statId))
+                .withCountOfTopScoringItemsToKeepInEachCategory(1)
+                .build());
+
+        allConsumers.add(CategorizedTopN.named("Rare Caster Boots")
+                .addItemTypeTypeCodes("boot")
+                .allowItemQualities(ItemQuality.RARE)
+                .withCategorizer(item -> "All")
+                .withScoringFunction(D2Item::getCasterValueForRareArmorOrJewelry)
+                .withCountOfTopScoringItemsToKeepInEachCategory(1)
+                .build());
+
+        allConsumers.add(CategorizedTopN.named("Rare Caster Rings")
+                .addItemTypeTypeCodes("ring")
+                .allowItemQualities(ItemQuality.RARE)
+                .withCategorizer(item -> "All")
+                .withScoringFunction(D2Item::getCasterValueForRareArmorOrJewelry)
+                .withCountOfTopScoringItemsToKeepInEachCategory(1)
+                .build());
+
+        allConsumers.add(CategorizedTopN.named("Rare Caster Amulets")
+                .addItemTypeTypeCodes("amul")
+                .allowItemQualities(ItemQuality.RARE)
+                .withCategorizer(item -> "All")
+                .withScoringFunction(D2Item::getCasterValueForRareArmorOrJewelry)
+                .withCountOfTopScoringItemsToKeepInEachCategory(1)
+                .build());
+
+        allConsumers.add(CategorizedTopN.named("Rare Caster Circlets")
+                .addItemTypeTypeCodes("circ")
+                .allowItemQualities(ItemQuality.RARE)
+                .withCategorizer(item -> "All")
+                .withScoringFunction(D2Item::getCasterValueForRareArmorOrJewelry)
+                .withCountOfTopScoringItemsToKeepInEachCategory(1)
+                .build());
+
+        allConsumers.add(CategorizedTopN.named("Fire Sorc Orbs")
+                .addItemTypeTypeCodes("orb")
+                .allowItemQualities(ItemQuality.RARE, ItemQuality.MAGIC, ItemQuality.NORMAL)
+                .withCategorizer(item -> item.getQuality().name())
+                .withAdditionalItemCriteria(item ->
+                    item.getSkillTabBonus(SkillTab.SORC_FIRE_SPELLS) != null ||
+                    item.getIndividualSkillBonusWithoutTabOrCharacterClassSkillAffixes(D2Skills.FIRE_BALL.get()) > 0 ||
+                    item.getIndividualSkillBonusWithoutTabOrCharacterClassSkillAffixes(D2Skills.FIRE_MASTERY.get()) > 0 ||
+                    item.getIndividualSkillBonusWithoutTabOrCharacterClassSkillAffixes(D2Skills.METEOR.get()) > 0)
+                .withScoringFunction(item -> {
+                    double result = item.getCasterValueForRareArmorOrJewelry();
+                    result += Optional.ofNullable(item.getSkillTabBonus(SkillTab.SORC_FIRE_SPELLS)).map(SkillBonuses.SkillTabBonus::getSkillLevelBonus).orElse(0) * 90;
+                    result += 30 * item.getIndividualSkillBonusWithoutTabOrCharacterClassSkillAffixes(D2Skills.FIRE_BALL.get());
+                    result += 25 * item.getIndividualSkillBonusWithoutTabOrCharacterClassSkillAffixes(D2Skills.FIRE_MASTERY.get());
+                    result += 30 * item.getIndividualSkillBonusWithoutTabOrCharacterClassSkillAffixes(D2Skills.METEOR.get());
+                    return (int) result;
+                })
+                .withCountOfTopScoringItemsToKeepInEachCategory(1)
+                .build());
+
+        allConsumers.add(CategorizedTopN.named("Lightning Sorc Orbs")
+                .addItemTypeTypeCodes("orb")
+                .allowItemQualities(ItemQuality.RARE, ItemQuality.MAGIC, ItemQuality.NORMAL)
+                .withCategorizer(item -> item.getQuality().name())
+                .withAdditionalItemCriteria(item ->
+                        item.getSkillTabBonus(SkillTab.SORC_LIGHTNING_SPELLS) != null ||
+                                item.getIndividualSkillBonusWithoutTabOrCharacterClassSkillAffixes(D2Skills.LIGHTNING.get()) > 0 ||
+                                item.getIndividualSkillBonusWithoutTabOrCharacterClassSkillAffixes(D2Skills.CHAIN_LIGHTNING.get()) > 0 ||
+                                item.getIndividualSkillBonusWithoutTabOrCharacterClassSkillAffixes(D2Skills.LIGHTNING_MASTERY.get()) > 0)
+                .withScoringFunction(item -> {
+                    double result = item.getCasterValueForRareArmorOrJewelry();
+                    result += Optional.ofNullable(item.getSkillTabBonus(SkillTab.SORC_LIGHTNING_SPELLS)).map(SkillBonuses.SkillTabBonus::getSkillLevelBonus).orElse(0) * 90;
+                    result += 30 * item.getIndividualSkillBonusWithoutTabOrCharacterClassSkillAffixes(D2Skills.LIGHTNING.get());
+                    result += 25 * item.getIndividualSkillBonusWithoutTabOrCharacterClassSkillAffixes(D2Skills.CHAIN_LIGHTNING.get());
+                    result += 30 * item.getIndividualSkillBonusWithoutTabOrCharacterClassSkillAffixes(D2Skills.LIGHTNING_MASTERY.get());
+                    return (int) result;
+                })
+                .withCountOfTopScoringItemsToKeepInEachCategory(1)
+                .build());
+
+        allConsumers.add(CategorizedTopN.named("Cold Sorc Orbs")
+                .addItemTypeTypeCodes("orb")
+                .allowItemQualities(ItemQuality.RARE, ItemQuality.MAGIC, ItemQuality.NORMAL)
+                .withCategorizer(item -> item.getQuality().name())
+                .withAdditionalItemCriteria(item ->
+                        item.getSkillTabBonus(SkillTab.SORC_COLD_SPELLS) != null ||
+                                item.getIndividualSkillBonusWithoutTabOrCharacterClassSkillAffixes(D2Skills.BLIZZARD.get()) > 0 ||
+                                item.getIndividualSkillBonusWithoutTabOrCharacterClassSkillAffixes(D2Skills.FROZEN_ORB.get()) > 0 ||
+                                item.getIndividualSkillBonusWithoutTabOrCharacterClassSkillAffixes(D2Skills.COLD_MASTERY.get()) > 0)
+                .withScoringFunction(item -> {
+                    double result = item.getCasterValueForRareArmorOrJewelry();
+                    result += Optional.ofNullable(item.getSkillTabBonus(SkillTab.SORC_COLD_SPELLS)).map(SkillBonuses.SkillTabBonus::getSkillLevelBonus).orElse(0) * 90;
+                    result += 50 * item.getIndividualSkillBonusWithoutTabOrCharacterClassSkillAffixes(D2Skills.BLIZZARD.get());
+                    result += 10 * item.getIndividualSkillBonusWithoutTabOrCharacterClassSkillAffixes(D2Skills.FROZEN_ORB.get());
+                    result += 25 * item.getIndividualSkillBonusWithoutTabOrCharacterClassSkillAffixes(D2Skills.COLD_MASTERY.get());
+                    return (int) result;
+                })
+                .withCountOfTopScoringItemsToKeepInEachCategory(1)
                 .build());
 
 
-        allConsumers.add(CategorizedTopN.named("Four Socket Armors")
+
+
+
+        allConsumers.add(CategorizedTopN.named("High Defense Armor")
                 .addItemTypeTypeCodes("tors")
-                .withAdditionalItemCriteria(item -> item.getSockets() == 4 && item.getStat(D2ItemStats.LIFE.statId) > 80*256)
-                .allowItemQualities(ItemQuality.MAGIC)
-                .withCategorizer(D2Item::getName)
-                .withScoringFunction(item -> item.getStat(7)/256)
-                .withCountOfTopScoringItemsToKeepInEachCategory(2)
+                .allowItemQualities(ItemQuality.NORMAL, ItemQuality.SUPERIOR)
+                .withCategorizer(item -> item.isEthereal() ? "ethereal" : "non-ethereal")
+                .withScoringFunction(item -> item.getDefense())
+                .withCountOfTopScoringItemsToKeepInEachCategory(1)
                 .build());
 
-        allConsumers.add(CategorizedTopN.named("Skill Grand Charms of Vita")
-                .addItemTypeTypeCodes("lcha")
-                .withAdditionalItemCriteria(item -> item.hasAtLeastOneSkillTabBonus() && item.getStat(7)/256 >= 36)
-                .allowItemQualities(ItemQuality.MAGIC)
-                .withCategorizer(D2Item::getName)
-                .withScoringFunction(item -> item.getStat(7)/256)
-                .withCountOfTopScoringItemsToKeepInEachCategory(2)
-                .build());
 
-        allConsumers.add(CategorizedTopN.named("IAS Jewels")
-                .addItemTypeTypeCodes("jewl")
-                .withAdditionalItemCriteria(item -> item.hasStat(D2ItemStats.INCREASED_ATTACK_SPEED.statId) &&
-                        ((item.getStat(D2ItemStats.MAXDAMAGE_PERCENT.statId) > 30) ||
-                                (item.hasStat(D2ItemStats.FIRE_RESIST.statId) && item.hasStat(D2ItemStats.LIGHTNING_RESIST.statId))))
-                .allowItemQualities(ItemQuality.MAGIC)
-                .withCategorizer(D2Item::getName)
-                .withScoringFunction(item -> item.getStat(D2ItemStats.MAXDAMAGE_PERCENT.statId) + item.getStat(D2ItemStats.FIRE_RESIST.statId))
-                .withCountOfTopScoringItemsToKeepInEachCategory(5)
-                .build());
+        /*
+
+
 
         allConsumers.add(CategorizedTopN.named("Rare Melee Jewels")
                 .addItemTypeTypeCodes("jewl")
@@ -120,13 +187,6 @@ public class HardcodedTCDropConsumerConfiguration {
                 .withCountOfTopScoringItemsToKeepInEachCategory(20)
                 .build());
 
-        allConsumers.add(CategorizedTopN.named("Superior Items")
-                .addItemTypeTypeCodes("weap","armo")
-                .allowItemQualities(ItemQuality.SUPERIOR)
-                .withCategorizer(item -> item.getName() + "|" + (item.isEthereal() ? "eth" : "non") + "|" + item.getSockets())
-                .withScoringFunction(item -> item.getStat(D2ItemStats.MAXDAMAGE_PERCENT.statId) + item.getStat(D2ItemStats.ENHANCED_DEFENSE_PERCENT.statId))
-                .withCountOfTopScoringItemsToKeepInEachCategory(1)
-                .build());
 
         allConsumers.add(CategorizedTopN.named("Illegal Barb Staffmods")
                 .addItemTypeTypeCodes("phlm")
@@ -158,7 +218,7 @@ public class HardcodedTCDropConsumerConfiguration {
                             .addZodRuneIfItemIsNotAlreadyLongLasting();
                     int remainingSocketsForJewels = weapon.getTotalSockets() - weapon.getFilledSockets();
                     // weapon = weapon.add_40ED_15IAS_JewelsToRemainingSockets();
-                    return item.getItemTypeType().getCode() /* + "|" + remainingSocketsForJewels  + "|" + (item.isEthereal() ? "eth" : "non") */;
+                    return item.getItemTypeType().getCode();
                 })
                 .withScoringFunction(item -> {
                     WeaponInfoForDamageCalc weapon = item.getWeaponInfoForDamageCalc()
@@ -195,17 +255,8 @@ public class HardcodedTCDropConsumerConfiguration {
                 .withCountOfTopScoringItemsToKeepInEachCategory(10)
                 .build());
 
-        allConsumers.add(CategorizedTopN.named("Magic Skill/IAS Javelins")
-                .addItemTypeTypeCodes("ajav")
-                .allowItemQualities(ItemQuality.MAGIC)
-                .withAdditionalItemCriteria(item -> {
-                    SkillBonuses.SkillTabBonus s = item.getSkillTabBonus(SkillTab.AMAZON_JAVELIN_AND_SPEAR_SKILLS);
-                    return s != null && s.getTotalBonusIncludingCharacterClassSkillBonuses() >= 2 && item.hasStat(D2ItemStats.INCREASED_ATTACK_SPEED.statId);
-                })
-                .withCategorizer(item -> item.getStat(D2ItemStats.INCREASED_ATTACK_SPEED.statId) + " IAS")
-                .withScoringFunction(item -> item.getSkillTabBonus(SkillTab.AMAZON_JAVELIN_AND_SPEAR_SKILLS).getTotalBonusIncludingCharacterClassSkillBonuses())
-                .withCountOfTopScoringItemsToKeepInEachCategory(5)
-                .build());
+
+         */
 
 
         return allConsumers;

@@ -1,6 +1,7 @@
 package org.sully.d2.itemtracking;
 
 import lombok.Getter;
+import org.sully.d2.SerializableD2Item;
 import org.sully.d2.gamemodel.D2Item;
 import org.sully.d2.util.Pair;
 
@@ -8,12 +9,6 @@ import java.util.*;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
-/**
- * Uses the same format (ItemGridSnapshot) for both the full snapshots and incremental Updates.
- * When used as an update/checkpoint, ItemGridSnapshot still contains the cumulative totals,
- * not just the incremental numbers since the previous checkpoint. So applying the update
- * just means overwriting all the data in the Item Grid.
- */
 public class ItemGrid implements D2TCDropConsumer {
 
 
@@ -35,7 +30,7 @@ public class ItemGrid implements D2TCDropConsumer {
 
 
 	@Override
-	public void initializeFromSnapshot(TCDropConsumerSnapshot snapshotUntyped, Map<Long, D2Item> itemsById) {
+	public void initializeFromSnapshot(TCDropConsumerSnapshot snapshotUntyped, Map<Long, SerializableD2Item> itemsById) {
 		ItemGridSnapshot snapshot = (ItemGridSnapshot) snapshotUntyped;
 
 		counts = new HashMap<>();

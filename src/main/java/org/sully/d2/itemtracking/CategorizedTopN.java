@@ -1,8 +1,8 @@
 package org.sully.d2.itemtracking;
 
-import lombok.Builder;
 import lombok.Getter;
-import lombok.Value;
+
+import org.sully.d2.SerializableD2Item;
 import org.sully.d2.gamemodel.D2Item;
 import org.sully.d2.gamemodel.enums.ItemQuality;
 import org.sully.d2.gamemodel.staticgamedata.D2ItemType;
@@ -11,35 +11,6 @@ import org.sully.d2.gamemodel.staticgamedata.D2ItemTypeType;
 import java.util.*;
 import java.util.function.Function;
 import java.util.function.Predicate;
-
-@Value
-@Builder
-class CategorizedTopNSnapshot implements TCDropConsumerSnapshot {
-
-	Map<String, TopNAndDistributionSnapshot> categories;
-	long totalIterations;
-	long countMatchingItemCodeAndQuality;
-	long countMatchingAdditionalCriteria;
-	String name;
-
-	@Override
-	public Set<Long> getReferencedItemIds() {
-		Set<Long> x = new HashSet<>();
-		for (TopNAndDistributionSnapshot topN : categories.values()) {
-			x.addAll(topN.getTopItemIds());
-		}
-		return x;
-	}
-
-
-	@Value
-	@Builder
-	static class TopNAndDistributionSnapshot {
-		Map<Integer,Long> scoreDistribution;
-		List<Long> topItemIds;
-		List<Integer> topScores;
-	}
-}
 
 public class CategorizedTopN implements D2TCDropConsumer {
 	final Set<String> applicableItemCodes;
@@ -61,7 +32,7 @@ public class CategorizedTopN implements D2TCDropConsumer {
 	long totalIterations = 0;
 
 	@Override
-	public void initializeFromSnapshot(TCDropConsumerSnapshot untypedSnapshot, Map<Long, D2Item> itemsById) {
+	public void initializeFromSnapshot(TCDropConsumerSnapshot untypedSnapshot, Map<Long, SerializableD2Item> itemsById) {
 		CategorizedTopNSnapshot snapshot = (CategorizedTopNSnapshot) untypedSnapshot;
 		this.countMatchingItemCodeAndQuality = snapshot.getCountMatchingItemCodeAndQuality();
 		this.countMatchingAdditionalCriteria = snapshot.getCountMatchingAdditionalCriteria();
@@ -74,7 +45,7 @@ public class CategorizedTopN implements D2TCDropConsumer {
 			TopNAndScoreDistribution topN = new TopNAndScoreDistribution(this.keepTopNItemsPerCategory);
 			int itemCount = topNSnapshot.getTopScores().size();
 			for (int i = 0; i < itemCount; i++) {
-				topN.consume(itemsById.get(topNSnapshot.getTopItemIds().get(i)), topNSnapshot.getTopScores().get(i));
+				topN.consume(D2Item.fromSerializableD2Item(itemsById.get(topNSnapshot.getTopItemIds().get(i))), topNSnapshot.getTopScores().get(i));
 			}
 			topN.overrideScoreDistribution(topNSnapshot.getScoreDistribution());
 			statsByCategory.put(category, topN);
@@ -99,7 +70,10 @@ public class CategorizedTopN implements D2TCDropConsumer {
 					if (!statsByCategory.containsKey(category)) {
 						statsByCategory.put(category, new TopNAndScoreDistribution(this.keepTopNItemsPerCategory));
 					}
-					statsByCategory.get(category).consume(item, score);
+					int newRank = statsByCategory.get(category).consume(item, score);
+					if (newRank != 0) {
+						System.out.println("New Rank " + newRank + " for " + name + " " + category + " : " + item.toLongString() + " . Iterations= " + totalIterations + ", countMatchingCriteria=" + countMatchingAdditionalCriteria + " , score=" + score);
+					}
 				}
 			}
 		}
@@ -129,6 +103,7 @@ public class CategorizedTopN implements D2TCDropConsumer {
 				.items(items)
 				.data(CategorizedTopNSnapshot.builder()
 						.categories(categorySnapshots)
+						.name(name)
 						.totalIterations(totalIterations)
 						.countMatchingItemCodeAndQuality(countMatchingItemCodeAndQuality)
 						.countMatchingAdditionalCriteria(countMatchingAdditionalCriteria)
