@@ -17,14 +17,14 @@ public class AssortedMagicItemsConsumer implements D2TCDropConsumer {
     long totalIterations = 0L;
 
     @Getter
-    String name;
+    String id;
 
     private long[][] counts = new long[Category.values().length][2];
     private D2Item[][] examples = new D2Item[Category.values().length][2];
 
 
-    public AssortedMagicItemsConsumer(String name) {
-        this.name = name;
+    public AssortedMagicItemsConsumer(String id) {
+        this.id = id;
     }
 
     @Override
@@ -66,7 +66,7 @@ public class AssortedMagicItemsConsumer implements D2TCDropConsumer {
         return DataReferencingItems.<TCDropConsumerSnapshot>builder()
                 .items(itemsToSave)
                 .data(AssortedMagicItemsSnapshot.builder()
-                    .name(name)
+                    .id(id)
                     .totalIterations(totalIterations)
                     .counts(counts)
                     .exampleItems(exampleItemIds)

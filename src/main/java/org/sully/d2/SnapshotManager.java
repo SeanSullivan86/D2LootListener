@@ -38,8 +38,12 @@ public class SnapshotManager {
 
     }
 
+    public static String generateSnapshotId() {
+        return "D2_ITEMS_" + formatter.format(Instant.now());
+    }
+
     public void saveSnapshot(DataSnapshot snapshot) {
-        File snapshotFile = new File(snapshotFolder, "D2_ITEMS_" + formatter.format(Instant.now()));
+        File snapshotFile = new File(snapshotFolder, snapshot.getId());
         try {
             objectMapper.writeValue(snapshotFile, snapshot);
         } catch (IOException e) {

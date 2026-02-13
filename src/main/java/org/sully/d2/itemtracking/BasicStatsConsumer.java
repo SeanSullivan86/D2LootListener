@@ -17,10 +17,10 @@ public class BasicStatsConsumer implements D2TCDropConsumer {
     D2Item[] mostRecentItemByQuality = new D2Item[10];
 
     @Getter
-    String name;
+    String id;
 
-    public BasicStatsConsumer(String name) {
-        this.name = name;
+    public BasicStatsConsumer(String id) {
+        this.id = id;
     }
 
     @Override
@@ -58,7 +58,7 @@ public class BasicStatsConsumer implements D2TCDropConsumer {
                         .countsByQuality(countsByQuality)
                         .mostRecentItemIdsByQuality(itemIdsByQuality)
                         .totalIterations(totalIterations)
-                        .name(name)
+                        .id(id)
                         .build())
                 .items(Arrays.stream(this.mostRecentItemByQuality).filter(Objects::nonNull).toList())
                 .build();

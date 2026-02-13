@@ -11,9 +11,9 @@ import java.util.Set;
 
 @Value
 @Builder
-public class CategorizedTopNSnapshot implements TCDropConsumerSnapshot {
+public class TopNSnapshot implements TCDropConsumerSnapshot {
 
-	Map<String, TopNAndDistributionSnapshot> categories;
+	TopNAndDistributionSnapshot stats;
 	long totalIterations;
 	long countMatchingItemCodeAndQuality;
 	long countMatchingAdditionalCriteria;
@@ -21,11 +21,7 @@ public class CategorizedTopNSnapshot implements TCDropConsumerSnapshot {
 
 	@Override
 	public Set<Long> getReferencedItemIds() {
-		Set<Long> x = new HashSet<>();
-		for (TopNAndDistributionSnapshot topN : categories.values()) {
-			x.addAll(topN.getTopItemIds());
-		}
-		return x;
+		return new HashSet<>(stats.getTopItemIds());
 	}
 
 	@Override
@@ -33,7 +29,7 @@ public class CategorizedTopNSnapshot implements TCDropConsumerSnapshot {
 		return ConsumerSummary.builder()
 				.consumerId(id)
 				.consumerType(this.getClass().getSimpleName())
-				.additionalInfo(List.copyOf(categories.keySet()))
+				.additionalInfo(null)
 				.build();
 	}
 
@@ -46,4 +42,3 @@ public class CategorizedTopNSnapshot implements TCDropConsumerSnapshot {
 		List<Integer> topScores;
 	}
 }
-

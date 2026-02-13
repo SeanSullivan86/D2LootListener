@@ -23,7 +23,7 @@ public class ItemGrid implements D2TCDropConsumer {
 	private Map<Pair<String,String>,Long> counts;
 
 	@Getter
-	private String name;
+	private String id;
 
 	@Getter
 	private long totalIterations;
@@ -81,7 +81,7 @@ public class ItemGrid implements D2TCDropConsumer {
 						.columnValues(columnValues)
 						.counts(countMatrix)
 						.totalIterations(totalIterations)
-						.name(name)
+						.id(id)
 						.build())
 				.build();
 	}
@@ -121,11 +121,11 @@ public class ItemGrid implements D2TCDropConsumer {
 	
 	
 
-	public ItemGrid(String name, Function<D2Item, String> rowValueFunc, Function<D2Item, String> columnValueFunc,
+	public ItemGrid(String id, Function<D2Item, String> rowValueFunc, Function<D2Item, String> columnValueFunc,
 			Predicate<D2Item> filter, Function<String, String> rowValueDisplayFunc,
 			Function<String, String> columnValueDisplayFunc, Comparator<String> rowComparator,
 			Comparator<String> columnComparator) {
-		this.name = name;
+		this.id = id;
 		this.rowValueFunc = rowValueFunc;
 		this.columnValueFunc = columnValueFunc;
 		this.filter = filter;

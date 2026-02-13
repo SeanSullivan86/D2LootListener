@@ -11,7 +11,6 @@ import org.sully.d2.gamemodel.staticgamedata.D2ItemStats;
 import org.sully.d2.gamemodel.staticgamedata.D2Skills;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class HardcodedTCDropConsumerConfiguration {
 
@@ -28,7 +27,7 @@ public class HardcodedTCDropConsumerConfiguration {
         List<D2TCDropConsumer> allConsumers = new ArrayList<>();
 
         allConsumers.add( new ItemGrid(
-                "Item Counts by Item Type and Quality",
+                "ITEM_COUNTS_BY_TYPE_AND_QUALITY",
                 item -> item.getItemType().getName(),
                 item -> item.getQuality().name(),
                 item -> true,
@@ -38,7 +37,7 @@ public class HardcodedTCDropConsumerConfiguration {
                 Comparator.naturalOrder()));
 
         allConsumers.add(new ItemGrid(
-                "Counts of Set and Unique Items by Name",
+                "COUNTS_OF_SET_AND_UNIQUES_BY_NAME",
                 D2Item::getName,
                 item -> item.isEthereal() ? "Ethereal" : "Non-Ethereal",
                 item -> (item.getQuality() == ItemQuality.SET || item.getQuality() == ItemQuality.UNIQUE),
@@ -47,59 +46,54 @@ public class HardcodedTCDropConsumerConfiguration {
                 Comparator.naturalOrder(),
                 Comparator.naturalOrder()));
 
-        allConsumers.add(new BasicStatsConsumer("Basic Stats"));
+        allConsumers.add(new BasicStatsConsumer("BASIC_STATS"));
 
-        allConsumers.add(new AssortedMagicItemsConsumer("Magic Items"));
+        allConsumers.add(new AssortedMagicItemsConsumer("MAGIC_ITEMS"));
 
 
-        allConsumers.add(CategorizedTopN.named("Tri-Res Boots")
+        allConsumers.add(TopNConsumer.withId("TRI_RES_BOOTS")
                 .addItemTypeTypeCodes("boot")
                 .allowItemQualities(ItemQuality.RARE)
                 .withAdditionalItemCriteria(item ->
                         item.hasStat(D2ItemStats.FIRE_RESIST.statId) &&
                         item.hasStat(D2ItemStats.LIGHTNING_RESIST.statId) &&
                         item.hasStat(D2ItemStats.COLD_RESIST.statId))
-                .withCategorizer(item -> "All")
                 .withScoringFunction(item ->
                                 item.getStat(D2ItemStats.FIRE_RESIST.statId) +
                                 item.getStat(D2ItemStats.LIGHTNING_RESIST.statId) +
                                 item.getStat(D2ItemStats.COLD_RESIST.statId))
-                .withCountOfTopScoringItemsToKeepInEachCategory(1)
+                .withCountOfTopScoringItemsToKeepInEachCategory(10)
                 .build());
 
-        allConsumers.add(CategorizedTopN.named("Rare Caster Boots")
+        allConsumers.add(TopNConsumer.withId("RARE_CASTER_BOOTS")
                 .addItemTypeTypeCodes("boot")
                 .allowItemQualities(ItemQuality.RARE)
-                .withCategorizer(item -> "All")
                 .withScoringFunction(D2Item::getCasterValueForRareArmorOrJewelry)
-                .withCountOfTopScoringItemsToKeepInEachCategory(1)
+                .withCountOfTopScoringItemsToKeepInEachCategory(10)
                 .build());
 
-        allConsumers.add(CategorizedTopN.named("Rare Caster Rings")
+        allConsumers.add(TopNConsumer.withId("RARE_CASTER_RINGS")
                 .addItemTypeTypeCodes("ring")
                 .allowItemQualities(ItemQuality.RARE)
-                .withCategorizer(item -> "All")
                 .withScoringFunction(D2Item::getCasterValueForRareArmorOrJewelry)
-                .withCountOfTopScoringItemsToKeepInEachCategory(1)
+                .withCountOfTopScoringItemsToKeepInEachCategory(10)
                 .build());
 
-        allConsumers.add(CategorizedTopN.named("Rare Caster Amulets")
+        allConsumers.add(TopNConsumer.withId("RARE_CASTER_AMULETS")
                 .addItemTypeTypeCodes("amul")
                 .allowItemQualities(ItemQuality.RARE)
-                .withCategorizer(item -> "All")
                 .withScoringFunction(D2Item::getCasterValueForRareArmorOrJewelry)
-                .withCountOfTopScoringItemsToKeepInEachCategory(1)
+                .withCountOfTopScoringItemsToKeepInEachCategory(10)
                 .build());
 
-        allConsumers.add(CategorizedTopN.named("Rare Caster Circlets")
+        allConsumers.add(TopNConsumer.withId("RARE_CASTER_CIRCLETS")
                 .addItemTypeTypeCodes("circ")
                 .allowItemQualities(ItemQuality.RARE)
-                .withCategorizer(item -> "All")
                 .withScoringFunction(D2Item::getCasterValueForRareArmorOrJewelry)
-                .withCountOfTopScoringItemsToKeepInEachCategory(1)
+                .withCountOfTopScoringItemsToKeepInEachCategory(10)
                 .build());
 
-        allConsumers.add(CategorizedTopN.named("Fire Sorc Orbs")
+        allConsumers.add(CategorizedTopN.withId("FIRE_SORC_ORBS")
                 .addItemTypeTypeCodes("orb")
                 .allowItemQualities(ItemQuality.RARE, ItemQuality.MAGIC, ItemQuality.NORMAL)
                 .withCategorizer(item -> item.getQuality().name())
@@ -116,10 +110,10 @@ public class HardcodedTCDropConsumerConfiguration {
                     result += 30 * item.getIndividualSkillBonusWithoutTabOrCharacterClassSkillAffixes(D2Skills.METEOR.get());
                     return (int) result;
                 })
-                .withCountOfTopScoringItemsToKeepInEachCategory(1)
+                .withCountOfTopScoringItemsToKeepInEachCategory(10)
                 .build());
 
-        allConsumers.add(CategorizedTopN.named("Lightning Sorc Orbs")
+        allConsumers.add(CategorizedTopN.withId("LIGHTNING_SORC_ORBS")
                 .addItemTypeTypeCodes("orb")
                 .allowItemQualities(ItemQuality.RARE, ItemQuality.MAGIC, ItemQuality.NORMAL)
                 .withCategorizer(item -> item.getQuality().name())
@@ -136,10 +130,10 @@ public class HardcodedTCDropConsumerConfiguration {
                     result += 30 * item.getIndividualSkillBonusWithoutTabOrCharacterClassSkillAffixes(D2Skills.LIGHTNING_MASTERY.get());
                     return (int) result;
                 })
-                .withCountOfTopScoringItemsToKeepInEachCategory(1)
+                .withCountOfTopScoringItemsToKeepInEachCategory(10)
                 .build());
 
-        allConsumers.add(CategorizedTopN.named("Cold Sorc Orbs")
+        allConsumers.add(CategorizedTopN.withId("COLD_SORC_ORBS")
                 .addItemTypeTypeCodes("orb")
                 .allowItemQualities(ItemQuality.RARE, ItemQuality.MAGIC, ItemQuality.NORMAL)
                 .withCategorizer(item -> item.getQuality().name())
@@ -156,19 +150,19 @@ public class HardcodedTCDropConsumerConfiguration {
                     result += 25 * item.getIndividualSkillBonusWithoutTabOrCharacterClassSkillAffixes(D2Skills.COLD_MASTERY.get());
                     return (int) result;
                 })
-                .withCountOfTopScoringItemsToKeepInEachCategory(1)
+                .withCountOfTopScoringItemsToKeepInEachCategory(10)
                 .build());
 
 
 
 
 
-        allConsumers.add(CategorizedTopN.named("High Defense Armor")
+        allConsumers.add(CategorizedTopN.withId("HIGH_DEFENSE_ARMOR")
                 .addItemTypeTypeCodes("tors")
                 .allowItemQualities(ItemQuality.NORMAL, ItemQuality.SUPERIOR)
                 .withCategorizer(item -> item.isEthereal() ? "ethereal" : "non-ethereal")
                 .withScoringFunction(item -> item.getDefense())
-                .withCountOfTopScoringItemsToKeepInEachCategory(1)
+                .withCountOfTopScoringItemsToKeepInEachCategory(10)
                 .build());
 
 
@@ -204,10 +198,10 @@ public class HardcodedTCDropConsumerConfiguration {
                 .withCategorizer(item -> item.getQuality().name())
                 .withScoringFunction(item -> item.getTotalBonusIncludingSkillTabAndClassSkillBonuses(D2Skills.TORNADO.get()))
                 .withCountOfTopScoringItemsToKeepInEachCategory(5)
-                .build());
+                .build()); */
 
         final AttackingContext barbTwoHandedSword = new AttackingContext(CharacterClass.BARBARIAN, 60, 2);
-        allConsumers.add(CategorizedTopN.named("Rare Weapons|1 or 2 handed : Highest DPS")
+        allConsumers.add(CategorizedTopN.withId("Rare Weapons|1 or 2 handed : Highest DPS")
                 .addItemTypeTypeCodes("weap")
                 .excludeItemTypeTypeCodes("staf","wand","orb")
                 .allowItemQualities(ItemQuality.RARE)
@@ -231,7 +225,7 @@ public class HardcodedTCDropConsumerConfiguration {
                 .build());
 
         final AttackingContext barbOneHandedSword = new AttackingContext(CharacterClass.BARBARIAN, 60, 1);
-        allConsumers.add(CategorizedTopN.named("Rare Weapons|1 handed : Highest DPS")
+        allConsumers.add(CategorizedTopN.withId("Rare Weapons|1 handed : Highest DPS")
                 .addItemTypeTypeCodes("weap")
                 .excludeItemTypeTypeCodes("staf","wand","orb")
                 .allowItemQualities(ItemQuality.RARE)
@@ -256,7 +250,7 @@ public class HardcodedTCDropConsumerConfiguration {
                 .build());
 
 
-         */
+
 
 
         return allConsumers;

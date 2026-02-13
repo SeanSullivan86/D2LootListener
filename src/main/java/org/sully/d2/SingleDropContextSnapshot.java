@@ -4,12 +4,12 @@ import lombok.Builder;
 import lombok.Value;
 import org.sully.d2.itemtracking.TCDropConsumerSnapshot;
 
-import java.util.List;
+import java.util.Map;
 
 @Value
 @Builder
 public class SingleDropContextSnapshot {
     String dropContextName;
 
-    List<TCDropConsumerSnapshot> consumers;
+    Map<String, TCDropConsumerSnapshot> consumersById;
 }

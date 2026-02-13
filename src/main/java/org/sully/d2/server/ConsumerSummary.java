@@ -6,7 +6,8 @@ import lombok.Value;
 @Value
 @Builder
 public class ConsumerSummary {
-    String consumerName;
+    String consumerId;
     String consumerType;
     Object additionalInfo; // varies depending on the consumerType
 }
+

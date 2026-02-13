@@ -12,7 +12,7 @@ import java.util.Set;
 @Builder
 public class AssortedMagicItemsSnapshot implements TCDropConsumerSnapshot {
 
-    String name;
+    String id;
     long totalIterations;
 
     private long[][] counts;
@@ -35,7 +35,7 @@ public class AssortedMagicItemsSnapshot implements TCDropConsumerSnapshot {
     @Override
     public ConsumerSummary toSummaryObject() {
         return ConsumerSummary.builder()
-                .consumerName(name)
+                .consumerId(id)
                 .consumerType(this.getClass().getSimpleName())
                 .additionalInfo(null)
                 .build();

@@ -16,7 +16,7 @@ public class ItemGridSnapshot implements TCDropConsumerSnapshot {
 	long[][] counts;
 	long totalIterations;
 
-	String name;
+	String id;
 
 	@Override
 	public Set<Long> getReferencedItemIds() {
@@ -26,7 +26,7 @@ public class ItemGridSnapshot implements TCDropConsumerSnapshot {
 	@Override
 	public ConsumerSummary toSummaryObject() {
 		return ConsumerSummary.builder()
-				.consumerName(name)
+				.consumerId(id)
 				.consumerType(this.getClass().getSimpleName())
 				.additionalInfo(null)
 				.build();

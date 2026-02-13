@@ -24,7 +24,7 @@ public class D2LootListener {
 
 
 	private static void run() throws Exception {
-		int d2InstanceCount = 5;
+		int d2InstanceCount = 1;
 		String snapshotFolder = "C:\\Users\\sully\\D2LootSnapshots";
 
 		SnapshotManager snapshotManager = new SnapshotManager(snapshotFolder);
@@ -78,7 +78,7 @@ public class D2LootListener {
 			D2Item.nextId = dataSnapshotFromStorage.get().getNextItemId();
 			dataSnapshotFromStorage.get().addSnapshotDataToConsumers(consumersByDropContext);
 
-			for (SingleDropContextSnapshot dropContextFromSnapshot : dataSnapshotFromStorage.get().getDropContexts()) {
+			for (SingleDropContextSnapshot dropContextFromSnapshot : dataSnapshotFromStorage.get().getDropContexts().values()) {
 				allDropContexts.add(DropContextEnum.valueOf(dropContextFromSnapshot.getDropContextName()));
 			}
 			previousSnapshot = dataSnapshotFromStorage.get();
@@ -89,7 +89,7 @@ public class D2LootListener {
 		//InputStream in = new BufferedInputStream(new FileInputStream("C:\\Users\\12063\\streamdata.bin"));
 		InputStream in;
 
-		long nextSnapshotTime = System.nanoTime() + TimeUnit.SECONDS.toNanos(1800);
+		long nextSnapshotTime = System.nanoTime() + TimeUnit.SECONDS.toNanos(300);
 
 
 		long iteration = 0;
@@ -143,25 +143,25 @@ public class D2LootListener {
 				long nanoTimeAtStartOfSnapshotting = System.nanoTime();
 
 
-				List<SingleDropContextSnapshot> dropContextSnapshots = new ArrayList<>();
+				Map<DropContextEnum,SingleDropContextSnapshot> dropContextSnapshots = new HashMap<>();
 				Map<Long,SerializableD2Item> itemsReferencedInSnapshots = new HashMap<>();
 
 				for (DropContextEnum dropContext : allDropContexts) {
-					Map<String,TCDropConsumerSnapshot> consumerSnapshotsByName = new HashMap<>();
+					Map<String,TCDropConsumerSnapshot> consumerSnapshotsById = new HashMap<>();
 					if (consumersByDropContext.containsKey(dropContext)) {
 						for (D2TCDropConsumer consumer : consumersByDropContext.get(dropContext)) {
 							DataReferencingItems<TCDropConsumerSnapshot> consumerSnapshot = consumer.takeSnapshot();
 							consumerSnapshot.getItems().forEach(item -> itemsReferencedInSnapshots.put(item.getId(), item.toSerializableD2Item()));
-							consumerSnapshotsByName.put(consumerSnapshot.getData().getName(), consumerSnapshot.getData());
+							consumerSnapshotsById.put(consumerSnapshot.getData().getId(), consumerSnapshot.getData());
 						}
 					}
 					if (previousSnapshot != null) {
-						Optional<SingleDropContextSnapshot> previousSnapshotForThisDropContext = previousSnapshot.getDropContexts().stream()
-								.filter(x -> x.getDropContextName().equals(dropContext.name())).findFirst();
+						Optional<SingleDropContextSnapshot> previousSnapshotForThisDropContext = Optional.ofNullable(previousSnapshot.getDropContexts().get(dropContext));
+
 						if (previousSnapshotForThisDropContext.isPresent()) {
-							for (TCDropConsumerSnapshot consumerSnapshot : previousSnapshotForThisDropContext.get().getConsumers()) {
-								if (!consumerSnapshotsByName.containsKey(consumerSnapshot.getName())) {
-									consumerSnapshotsByName.put(consumerSnapshot.getName(), consumerSnapshot);
+							for (TCDropConsumerSnapshot consumerSnapshot : previousSnapshotForThisDropContext.get().getConsumersById().values()) {
+								if (!consumerSnapshotsById.containsKey(consumerSnapshot.getId())) {
+									consumerSnapshotsById.put(consumerSnapshot.getId(), consumerSnapshot);
 									for (Long referencedItemId : consumerSnapshot.getReferencedItemIds()) {
 										itemsReferencedInSnapshots.put(referencedItemId, previousSnapshot.getItemsById().get(referencedItemId));
 									}
@@ -173,16 +173,18 @@ public class D2LootListener {
 
 
 
-					dropContextSnapshots.add(SingleDropContextSnapshot.builder()
-							.dropContextName(dropContext.name())
-							.consumers(List.copyOf(consumerSnapshotsByName.values()))
-							.build());
+					dropContextSnapshots.put(dropContext,
+							SingleDropContextSnapshot.builder()
+									.dropContextName(dropContext.name())
+									.consumersById(consumerSnapshotsById)
+									.build());
 				}
 
 				DataSnapshot newSnapshot = DataSnapshot.builder()
 						.dropContexts(dropContextSnapshots)
 						.itemsById(itemsReferencedInSnapshots)
 						.nextItemId(D2Item.nextId)
+						.id(SnapshotManager.generateSnapshotId())
 						.build();
 
 
@@ -193,7 +195,7 @@ public class D2LootListener {
 
 				System.out.println("Finished saving snapshot. Time spent = " + String.format("%.1f", ((nanoTimeAtEndOfSnapshotting - nanoTimeAtStartOfSnapshotting) / 1_000_000.0)) + " ms");
 
-				nextSnapshotTime = nanoTimeAtEndOfSnapshotting + TimeUnit.SECONDS.toNanos(1800);
+				nextSnapshotTime = nanoTimeAtEndOfSnapshotting + TimeUnit.SECONDS.toNanos(300);
 
 				// todo send the snapshot to a different server ?
 

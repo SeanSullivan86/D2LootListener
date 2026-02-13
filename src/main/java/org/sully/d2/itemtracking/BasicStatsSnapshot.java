@@ -17,7 +17,7 @@ public class BasicStatsSnapshot implements TCDropConsumerSnapshot {
     Long[] mostRecentItemIdsByQuality;
     long totalIterations;
 
-    String name;
+    String id;
 
     @Override
     public Set<Long> getReferencedItemIds() {
@@ -27,7 +27,7 @@ public class BasicStatsSnapshot implements TCDropConsumerSnapshot {
     @Override
     public ConsumerSummary toSummaryObject() {
         return ConsumerSummary.builder()
-                .consumerName(name)
+                .consumerId(id)
                 .consumerType(this.getClass().getSimpleName())
                 .additionalInfo(BasicStatsSummary.builder()
                         .countsByQuality(countsByQuality)

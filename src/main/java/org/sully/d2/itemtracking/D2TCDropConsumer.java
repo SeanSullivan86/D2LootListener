@@ -1,13 +1,12 @@
 package org.sully.d2.itemtracking;
 
 import org.sully.d2.SerializableD2Item;
-import org.sully.d2.gamemodel.D2Item;
 
 import java.util.Map;
 
 public interface D2TCDropConsumer {
 
-	String getName();
+	String getId();
 
 	long getTotalIterations();
 
