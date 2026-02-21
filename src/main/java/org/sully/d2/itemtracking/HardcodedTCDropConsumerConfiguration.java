@@ -1,6 +1,7 @@
 package org.sully.d2.itemtracking;
 
 import org.sully.d2.gamemodel.D2Item;
+import org.sully.d2.gamemodel.DamageOption;
 import org.sully.d2.gamemodel.derivedstats.AttackingContext;
 import org.sully.d2.gamemodel.derivedstats.SkillBonuses;
 import org.sully.d2.gamemodel.derivedstats.WeaponInfoForDamageCalc;
@@ -9,8 +10,11 @@ import org.sully.d2.gamemodel.enums.ItemQuality;
 import org.sully.d2.gamemodel.enums.SkillTab;
 import org.sully.d2.gamemodel.staticgamedata.D2ItemStats;
 import org.sully.d2.gamemodel.staticgamedata.D2Skills;
+import org.sully.d2.itemtracking.uniques.PerfectUniquesTracker;
 
 import java.util.*;
+import java.util.function.Function;
+import java.util.function.Predicate;
 
 public class HardcodedTCDropConsumerConfiguration {
 
@@ -50,6 +54,7 @@ public class HardcodedTCDropConsumerConfiguration {
 
         allConsumers.add(new AssortedMagicItemsConsumer("MAGIC_ITEMS"));
 
+        allConsumers.add(new PerfectUniquesTracker());
 
         allConsumers.add(TopNConsumer.withId("TRI_RES_BOOTS")
                 .addItemTypeTypeCodes("boot")
@@ -166,6 +171,8 @@ public class HardcodedTCDropConsumerConfiguration {
                 .build());
 
 
+        allConsumers.add(new StaffmodTracker("STAFFMOD_TRACKER"));
+
         /*
 
 
@@ -200,59 +207,150 @@ public class HardcodedTCDropConsumerConfiguration {
                 .withCountOfTopScoringItemsToKeepInEachCategory(5)
                 .build()); */
 
-        final AttackingContext barbTwoHandedSword = new AttackingContext(CharacterClass.BARBARIAN, 60, 2);
-        allConsumers.add(CategorizedTopN.withId("Rare Weapons|1 or 2 handed : Highest DPS")
-                .addItemTypeTypeCodes("weap")
-                .excludeItemTypeTypeCodes("staf","wand","orb")
-                .allowItemQualities(ItemQuality.RARE)
-                .withAdditionalItemCriteria(item -> item.getWeaponInfoForDamageCalc().isAlreadyLongLastingOrCanBeFixedWithAZodRune())
-                .withCategorizer(item -> {
-                    WeaponInfoForDamageCalc weapon = item.getWeaponInfoForDamageCalc()
-                            .upgradeRareOrUniqueToEliteAndAddSocketIfSocketableAndNotAlreadySocketed()
-                            .addZodRuneIfItemIsNotAlreadyLongLasting();
-                    int remainingSocketsForJewels = weapon.getTotalSockets() - weapon.getFilledSockets();
-                    // weapon = weapon.add_40ED_15IAS_JewelsToRemainingSockets();
-                    return item.getItemTypeType().getCode();
-                })
-                .withScoringFunction(item -> {
-                    WeaponInfoForDamageCalc weapon = item.getWeaponInfoForDamageCalc()
-                            .upgradeRareOrUniqueToEliteAndAddSocketIfSocketableAndNotAlreadySocketed()
-                            .addZodRuneIfItemIsNotAlreadyLongLasting()
-                            .add_40ED_15IAS_JewelsToRemainingSockets();
-                    return weapon.getDamage(barbTwoHandedSword).getDps();
-                })
-                .withCountOfTopScoringItemsToKeepInEachCategory(10)
-                .build());
 
-        final AttackingContext barbOneHandedSword = new AttackingContext(CharacterClass.BARBARIAN, 60, 1);
-        allConsumers.add(CategorizedTopN.withId("Rare Weapons|1 handed : Highest DPS")
-                .addItemTypeTypeCodes("weap")
-                .excludeItemTypeTypeCodes("staf","wand","orb")
-                .allowItemQualities(ItemQuality.RARE)
-                .withAdditionalItemCriteria(item -> item.getItemType().getWeaponInfo().isOneHandableByBarbarian() &&
-                        item.getWeaponInfoForDamageCalc().isAlreadyLongLastingOrCanBeFixedWithAZodRune())
-                .withCategorizer(item -> {
-                    WeaponInfoForDamageCalc weapon = item.getWeaponInfoForDamageCalc()
-                            .upgradeRareOrUniqueToEliteAndAddSocketIfSocketableAndNotAlreadySocketed()
-                            .addZodRuneIfItemIsNotAlreadyLongLasting();
-                    int remainingSocketsForJewels = weapon.getTotalSockets() - weapon.getFilledSockets();
-                    // weapon = weapon.add_40ED_15IAS_JewelsToRemainingSockets();
-                    return item.getItemTypeType().getCode() + "|" + remainingSocketsForJewels  + "|" + (item.isEthereal() ? "eth" : "non");
-                })
-                .withScoringFunction(item -> {
-                    WeaponInfoForDamageCalc weapon = item.getWeaponInfoForDamageCalc()
-                            .upgradeRareOrUniqueToEliteAndAddSocketIfSocketableAndNotAlreadySocketed()
-                            .addZodRuneIfItemIsNotAlreadyLongLasting()
-                            .add_40ED_15IAS_JewelsToRemainingSockets();
-                    return weapon.getDamage(barbOneHandedSword).getDps();
-                })
-                .withCountOfTopScoringItemsToKeepInEachCategory(10)
-                .build());
+        Predicate<D2Item> weaponFilter_1Handed_Ethereal = item -> item.isOneHandableByBarbarian() && item.isEthereal();
+        Predicate<D2Item> weaponFilter_2Handed_Ethereal = item -> item.getItemType().getWeaponInfo().isTwoHanded() && item.isEthereal();
+        Predicate<D2Item> weaponFilter_1Handed_CapableOfLongLasting = item -> item.isOneHandableByBarbarian() && item.getWeaponInfoForDamageCalc().isAlreadyLongLastingOrCanBeFixedWithSocketingAndZod();
+        Predicate<D2Item> weaponFilter_2Handed_CapableOfLongLasting  = item -> item.getItemType().getWeaponInfo().isTwoHanded() && item.getWeaponInfoForDamageCalc().isAlreadyLongLastingOrCanBeFixedWithSocketingAndZod();
+
+        // Creates a CategorizedTopN consumer for each of the 48 combinations of ScoringOption, EtherealOption,
+        // HandednessOption, and UpgradeOption
+        for (RWScoringOption scoringOption : RWScoringOption.values()) {
+            for (RWEtherealOption etherealOption : RWEtherealOption.values()) {
+                for (RWHandednessOption handednessOption : RWHandednessOption.values()) {
+                    for (RWUpgradeOption upgradeOption : RWUpgradeOption.values()) {
+
+                        final Function<DamageOption,Integer> scoringFunction = switch(scoringOption) {
+                            case MAX_DMG -> (x -> x.getMax());
+                            case AVG_DMG -> (x -> x.getAverage());
+                            case DPS -> (x -> x.getDps());
+                        };
+
+                        final Predicate<D2Item> weaponFilter;
+                        if (etherealOption == RWEtherealOption.ETHEREAL) {
+                            if (handednessOption == RWHandednessOption.ONE_HANDED) {
+                                weaponFilter = weaponFilter_1Handed_Ethereal;
+                            } else {
+                                weaponFilter = weaponFilter_2Handed_Ethereal;
+                            }
+                        } else { // CAN_BE_MADE_LONG_LASTING
+                            if (upgradeOption == RWUpgradeOption.NO_UPGRADE) {
+                                // if no upgrades are allowed, then "can be made long-lasting" becomes "is already long-lasting"
+                                if (handednessOption == RWHandednessOption.ONE_HANDED) {
+                                    weaponFilter = item -> (item.getWeaponInfoForDamageCalc().isAlreadyLongLasting() && item.isOneHandableByBarbarian());
+                                } else {
+                                    weaponFilter = item -> (item.getWeaponInfoForDamageCalc().isAlreadyLongLasting() && item.getItemType().getWeaponInfo().isTwoHanded());
+                                }
+                            } else {
+                                if (handednessOption == RWHandednessOption.ONE_HANDED) {
+                                    weaponFilter = weaponFilter_1Handed_CapableOfLongLasting;
+                                } else {
+                                    weaponFilter = weaponFilter_2Handed_CapableOfLongLasting;
+                                }
+                            }
+
+                        }
 
 
+                        final Function<D2Item,DamageOption> damageOption;
+                        if (etherealOption == RWEtherealOption.CAN_BE_MADE_LONG_LASTING) {
+                            if (handednessOption == RWHandednessOption.TWO_HANDED) {
+                                if (upgradeOption == RWUpgradeOption.NO_UPGRADE)
+                                    damageOption = item -> item.getOriginalDmg();
+                                else if (upgradeOption == RWUpgradeOption.ELITE_SOCKETS_ZOD_4015)
+                                    damageOption = item -> item.getUpSocketZod4015();
+                                else if (upgradeOption == RWUpgradeOption.ELITE_SOCKETS_ZOD_OHM)
+                                    damageOption = item -> item.getUpSocketZodOhm();
+                                else // ELITE_SOCKETS_ZOD
+                                    damageOption = item -> item.getUpSocketZod();
+                            } else { // 1 handed
+                                if (upgradeOption == RWUpgradeOption.NO_UPGRADE)
+                                    damageOption = item -> item.getOriginalDmg_1h() == null ? item.getOriginalDmg() : item.getOriginalDmg_1h();
+                                else if (upgradeOption == RWUpgradeOption.ELITE_SOCKETS_ZOD_4015)
+                                    damageOption = item -> item.getUpSocketZod4015_1h() == null ? item.getUpSocketZod4015() : item.getUpSocketZod4015_1h();
+                                else if (upgradeOption == RWUpgradeOption.ELITE_SOCKETS_ZOD_OHM)
+                                    damageOption = item -> item.getUpSocketZodOhm_1h() == null ? item.getUpSocketZodOhm() : item.getUpSocketZodOhm_1h();
+                                else // ELITE_SOCKETS_ZOD
+                                    damageOption = item -> item.getUpSocketZod_1h() == null ? item.getUpSocketZod() : item.getUpSocketZod_1h();
+                            }
+                        } else { // ETHEREAL
+                            if (handednessOption == RWHandednessOption.TWO_HANDED) {
+                                if (upgradeOption == RWUpgradeOption.NO_UPGRADE)
+                                    damageOption = item -> item.getOriginalDmg();
+                                else if (upgradeOption == RWUpgradeOption.ELITE_SOCKETS_ZOD_4015)
+                                    damageOption = item -> item.getUpSocket4015_eth();
+                                else if (upgradeOption == RWUpgradeOption.ELITE_SOCKETS_ZOD_OHM)
+                                    damageOption = item -> item.getUpSocketOhm_eth();
+                                else // ELITE_SOCKETS_ZOD
+                                    damageOption = item -> item.getUpSocket_eth();
+                            } else { // 1 handed
+                                if (upgradeOption == RWUpgradeOption.NO_UPGRADE)
+                                    damageOption = item -> item.getOriginalDmg_1h() == null ? item.getOriginalDmg() : item.getOriginalDmg_1h();
+                                else if (upgradeOption == RWUpgradeOption.ELITE_SOCKETS_ZOD_4015)
+                                    damageOption = item -> item.getUpSocket4015_eth_1h() == null ? item.getUpSocket4015_eth() : item.getUpSocket4015_eth_1h();
+                                else if (upgradeOption == RWUpgradeOption.ELITE_SOCKETS_ZOD_OHM)
+                                    damageOption = item -> item.getUpSocketOhm_eth_1h() == null ? item.getUpSocketOhm_eth() : item.getUpSocketOhm_eth_1h();
+                                else // ELITE_SOCKETS_ZOD
+                                    damageOption = item -> item.getUpSocket_eth_1h() == null ? item.getUpSocket_eth() : item.getUpSocket_eth_1h();
+                            }
+                        }
+
+                        allConsumers.add(CategorizedTopN.withId("RARE_WEAPONS|" + scoringOption.name() + "|" +
+                                        upgradeOption.name() + "|" + handednessOption.name() + "|" + etherealOption.name())
+                                .addItemTypeTypeCodes("weap")
+                                .excludeItemTypeTypeCodes("staf","wand","orb")
+                                .allowItemQualities(ItemQuality.RARE)
+                                .withAdditionalItemCriteria(weaponFilter)
+                                .withCategorizer(item -> item.getItemTypeType().getCode())
+                                .withScoringFunction(item ->  scoringFunction.apply(damageOption.apply(item)))
+                                .withCountOfTopScoringItemsToKeepInEachCategory(5)
+                                .build());
 
 
+                    }
+                }
+            }
+
+        }
 
         return allConsumers;
     }
+}
+
+enum RWScoringOption {
+    MAX_DMG,
+    AVG_DMG,
+    DPS;
+}
+
+/** For the options including _ZOD , only put zod rune in the weapon if RWEtherealOption is CAN_BE_MADE_LONG_LASTING
+ * and zod is required in order for that item to be long-lasting
+ *
+ * ELITE means "upgrade the item to elite if possible" (ie. how it would be done through the crafting recipe)
+ * SOCKETS means "give the item a socket if it is socketable and doesn't already have sockets" (ie. how it would be done with Larzuk quest reward)
+ * 4015 means "put 40%ed/15ias jewels in the remaining sockets"
+ * OHM means "put ohm runes (50% ed) in the remaining sockets"
+ */
+enum RWUpgradeOption {
+    NO_UPGRADE,
+    ELITE_SOCKETS_ZOD_4015,
+    ELITE_SOCKETS_ZOD_OHM,
+    ELITE_SOCKETS_ZOD;
+}
+
+enum RWHandednessOption {
+    ONE_HANDED,
+    TWO_HANDED;
+}
+
+enum RWEtherealOption {
+    /** only consider Ethereal items, and don't bother putting Zod runes in them, let them remain short-lasting */
+    ETHEREAL,
+
+    /**
+     * Consider any item that is either already long-lasting or could be made long-lasting by socketing it and putting
+     * a zod rune in it. Exception: if RWUpgradeOption is NO_UPGRADE, then socketing is not allowed and this becomes
+     * a filter checking whether the item is already long-lasting
+     */
+    CAN_BE_MADE_LONG_LASTING;
 }

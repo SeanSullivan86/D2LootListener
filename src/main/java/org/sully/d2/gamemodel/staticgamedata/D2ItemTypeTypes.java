@@ -11,7 +11,8 @@ public enum D2ItemTypeTypes {
 	CIRCLET("circ"),
 	
 	BARB_HELM("phlm"),
-	SORC_ORB("orb");
+	SORC_ORB("orb"),
+	SWORD("swor");
 
 	public final String code;
 

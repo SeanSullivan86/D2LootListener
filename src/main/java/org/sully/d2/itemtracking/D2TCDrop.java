@@ -23,7 +23,7 @@ public class D2TCDrop {
         for (int i = 0; i < itemCount; i++) {
             int singleItemMessageLength = buf.getShort(previousMessageLengths);
 
-            items.add(D2Item.fromData(data, buf, previousMessageLengths + 2)); // point offset at the first bytes after the singleItemMessageLength
+            items.add(D2Item.fromData(data, buf, previousMessageLengths + 2, dropContext)); // point offset at the first bytes after the singleItemMessageLength
             previousMessageLengths += singleItemMessageLength;
         }
 

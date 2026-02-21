@@ -1,6 +1,7 @@
 package org.sully.d2.server;
 
 import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
@@ -10,6 +11,7 @@ import org.sully.d2.itemtracking.DropContextEnum;
 
 
 @Controller
+@CrossOrigin
 public class WebResponsesController {
 
     private final SnapshotAccessor snapshotAccessor;
@@ -29,6 +31,14 @@ public class WebResponsesController {
                 .snapshotId(snapshot.getId())
                 .response(summary)
                 .build();
+    }
+
+    @RequestMapping("/allData")
+    @ResponseBody
+    public DataSnapshot getAllData() {
+        DataSnapshot snapshot = snapshotAccessor.getSnapshot();
+
+        return snapshot;
     }
 
     @RequestMapping("/dropContexts/{dropContextName}/consumers/{consumerId}")

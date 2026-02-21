@@ -10,6 +10,9 @@ public class AttackingContext {
     int additionalIasFromNonWeaponSources;
     int useOneOrTwoHandsIfItsATwoHandedSwordAndYoureABarbarian;
 
+    public static final AttackingContext barbTwoHandedSword = new AttackingContext(CharacterClass.BARBARIAN, 60, 2);
+    public static final AttackingContext barbOneHandedSword = new AttackingContext(CharacterClass.BARBARIAN, 60, 1);
+
     public double getAttacksPerSecond(D2ItemType itemType, int iasOnWeapon) {
         // TODO determine animation length better...
 

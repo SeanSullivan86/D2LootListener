@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.Value;
 import org.sully.d2.SerializableD2Item;
+import org.sully.d2.gamemodel.derivedstats.AttackingContext;
 import org.sully.d2.gamemodel.derivedstats.WeaponInfoForDamageCalc;
 import org.sully.d2.gamemodel.derivedstats.SkillBonuses;
 import org.sully.d2.gamemodel.enums.CharacterClass;
@@ -112,6 +113,20 @@ public class D2Item {
 				.defense(defense)
 				.itemTypeCode(itemType.getCode())
 				.stats(stats.getStats())
+				.originalDmg(originalDmg)
+				.originalDmg_1h(originalDmg_1h)
+				.upSocketZod4015(upSocketZod4015)
+				.upSocketZod4015_1h(upSocketZod4015_1h)
+				.upSocketZodOhm(upSocketZodOhm)
+				.upSocketZodOhm_1h(upSocketZodOhm_1h)
+				.upSocketZod(upSocketZod)
+				.upSocketZod_1h(upSocketZod_1h)
+				.upSocket4015_eth(upSocket4015_eth)
+				.upSocket4015_eth_1h(upSocket4015_eth_1h)
+				.upSocketOhm_eth(upSocketOhm_eth)
+				.upSocketOhm_eth_1h(upSocketOhm_eth_1h)
+				.upSocket_eth(upSocket_eth)
+				.upSocket_eth_1h(upSocket_eth_1h)
 				.build();
 	}
 
@@ -119,6 +134,8 @@ public class D2Item {
 		D2ItemBuilder item = D2Item.builder();
 		item.id = input.getId();
 		item.itemType = D2ItemType.fromCode(input.getItemTypeCode());
+
+		item.dropContext = input.getDropContext();
 
 		item.itemTypeType = item.itemType.getItemTypeType();
 		item.quality = input.getQuality();
@@ -132,26 +149,35 @@ public class D2Item {
 
 		item.stats = new StatList(input.getStats());
 
-		item.skillBonuses = SkillBonuses.deriveSkillBonusesFromStats(item.stats);
+		populateDerivedStats(item);
 
-		if (item.quality == ItemQuality.UNIQUE) {
-			item.uniqueItem = D2UniqueItem.getFromItem(item.itemType, item.stats, item.name);
-		}
-
-		if (item.itemType.getWeaponInfo() != null) {
-			item.weaponInfoForDamageCalc = new WeaponInfoForDamageCalc(item.itemType, item.quality, item.stats, item.ethereal, item.sockets);
-		}
 		return item.build();
 	}
 
 	static Set<Integer> statsSeen = new HashSet<>();
+
+	// "1h" variants only populated for 2-handed swords, with damage when used 1-handed by barbarian
+
+	DamageOption originalDmg, originalDmg_1h; // different Consumers will allow or disallow ethereal items
+	// "Zod" means "fill with zod if necessary to make the item long-lasting". If it can't be made long-lasting, then these will be null
+	DamageOption upSocketZod4015, upSocketZod4015_1h;
+	DamageOption upSocketZodOhm, upSocketZodOhm_1h;
+	DamageOption upSocketZod, upSocketZod_1h;
+
+	// "eth" options are only populated for ethereal items
+	DamageOption upSocket4015_eth, upSocket4015_eth_1h;
+	DamageOption upSocketOhm_eth, upSocketOhm_eth_1h;
+	DamageOption upSocket_eth, upSocket_eth_1h;
+
+
 	
-	public static D2Item fromData(byte[] data, ByteBuffer buf, int offset) {
+	public static D2Item fromData(byte[] data, ByteBuffer buf, int offset, DropContextEnum dropContext) {
 
 		D2ItemBuilder item = D2Item.builder();
 
 		String itemTypeCode = new String(data, offset, 3, StandardCharsets.UTF_8);
 		item.itemType = D2ItemType.fromCode(itemTypeCode);
+		item.dropContext = dropContext;
 
 		String itemTypeTypeCode = new String(data, offset+3, 4, StandardCharsets.UTF_8);
 		if (itemTypeTypeCode.endsWith(" ")) {
@@ -213,7 +239,7 @@ public class D2Item {
 		}
 		item.stats = new StatList(stats);
 
-		item.skillBonuses = SkillBonuses.deriveSkillBonusesFromStats(item.stats);
+		populateDerivedStats(item);
 
 		/*
 		if (item.quality == ItemQuality.NORMAL || item.quality == ItemQuality.MAGIC || item.quality == ItemQuality.RARE) {
@@ -232,6 +258,14 @@ public class D2Item {
 				}
 			}
 		} */
+		
+		item.id = ++nextId;
+		return item.build();
+	}
+	public static long nextId;
+
+	private static void populateDerivedStats(D2ItemBuilder item) {
+		item.skillBonuses = SkillBonuses.deriveSkillBonusesFromStats(item.stats);
 
 		if (item.quality == ItemQuality.UNIQUE) {
 			item.uniqueItem = D2UniqueItem.getFromItem(item.itemType, item.stats, item.name);
@@ -241,11 +275,89 @@ public class D2Item {
 		if (item.itemType.getWeaponInfo() != null) {
 			item.weaponInfoForDamageCalc = new WeaponInfoForDamageCalc(item.itemType, item.quality, item.stats, item.ethereal, item.sockets);
 		}
-		
-		item.id = ++nextId;
-		return item.build();
+
+		if (item.itemType.getWeaponInfo() != null && item.quality == ItemQuality.RARE) {
+			// originalDmg
+			WeaponInfoForDamageCalc x = item.weaponInfoForDamageCalc;
+			DamageOption damage;
+
+			boolean isTwoHandedSword = "swor".equals(item.itemTypeType.getCode()) && item.itemType.getWeaponInfo().isTwoHanded();
+
+			item.originalDmg = x.getDamage(AttackingContext.barbTwoHandedSword);
+			if (isTwoHandedSword) {
+				item.originalDmg_1h = x.getDamage(AttackingContext.barbOneHandedSword);
+			}
+
+			if (item.weaponInfoForDamageCalc.isAlreadyLongLastingOrCanBeFixedWithSocketingAndZod()) {
+				// upSocketZod4015
+				x = item.weaponInfoForDamageCalc
+						.upgradeRareOrUniqueToEliteAndAddSocketIfSocketableAndNotAlreadySocketed()
+						.addZodRuneIfItemIsNotAlreadyLongLasting()
+						.add_40ED_15IAS_JewelsToRemainingSockets();
+				item.upSocketZod4015 = x.getDamage(AttackingContext.barbTwoHandedSword);
+				if (isTwoHandedSword) {
+					item.upSocketZod4015_1h = x.getDamage(AttackingContext.barbOneHandedSword);
+				}
+
+				// upSocketZodOhm
+				x = item.weaponInfoForDamageCalc
+						.upgradeRareOrUniqueToEliteAndAddSocketIfSocketableAndNotAlreadySocketed()
+						.addZodRuneIfItemIsNotAlreadyLongLasting()
+						.addOhmRunesToRemainingSockets();
+				item.upSocketZodOhm = x.getDamage(AttackingContext.barbTwoHandedSword);
+				if (isTwoHandedSword) {
+					item.upSocketZodOhm_1h = x.getDamage(AttackingContext.barbOneHandedSword);
+				}
+
+
+
+				// upSocketZod
+				x = item.weaponInfoForDamageCalc
+						.upgradeRareOrUniqueToEliteAndAddSocketIfSocketableAndNotAlreadySocketed()
+						.addZodRuneIfItemIsNotAlreadyLongLasting();
+				item.upSocketZod = x.getDamage(AttackingContext.barbTwoHandedSword);
+				if (isTwoHandedSword) {
+					item.upSocketZod_1h = x.getDamage(AttackingContext.barbOneHandedSword);
+				}
+
+			}
+
+			if (item.ethereal) {
+				// upSocket4015_eth
+				x = item.weaponInfoForDamageCalc
+						.upgradeRareOrUniqueToEliteAndAddSocketIfSocketableAndNotAlreadySocketed()
+						.add_40ED_15IAS_JewelsToRemainingSockets();
+				item.upSocket4015_eth = x.getDamage(AttackingContext.barbTwoHandedSword);
+				if (isTwoHandedSword) {
+					item.upSocket4015_eth_1h = x.getDamage(AttackingContext.barbOneHandedSword);
+				}
+
+				// upSocketOhm_eth
+				x = item.weaponInfoForDamageCalc
+						.upgradeRareOrUniqueToEliteAndAddSocketIfSocketableAndNotAlreadySocketed()
+						.addOhmRunesToRemainingSockets();
+				item.upSocketOhm_eth = x.getDamage(AttackingContext.barbTwoHandedSword);
+				if (isTwoHandedSword) {
+					item.upSocketOhm_eth_1h = x.getDamage(AttackingContext.barbOneHandedSword);
+				}
+
+				// upSocket_eth
+				x = item.weaponInfoForDamageCalc
+						.upgradeRareOrUniqueToEliteAndAddSocketIfSocketableAndNotAlreadySocketed();
+				item.upSocket_eth = x.getDamage(AttackingContext.barbTwoHandedSword);
+				if (isTwoHandedSword) {
+					item.upSocket_eth_1h = x.getDamage(AttackingContext.barbOneHandedSword);
+				}
+			}
+
+		}
 	}
-	public static long nextId;
+
+
+	public boolean isOneHandableByBarbarian() {
+		return this.itemType.getWeaponInfo().isOneHandableByBarbarian();
+	}
+
 	
 	public String toLongString() {
 		return String.join("\t",
@@ -310,3 +422,4 @@ public class D2Item {
 		return getStat(D2ItemStats.LIFE.statId)/256;
 	}
 }
+

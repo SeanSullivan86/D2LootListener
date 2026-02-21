@@ -66,6 +66,8 @@ public class D2Skill {
 		}
 	}
 
+	public static Map<Integer,String> skillIdToNameMap = new HashMap<>();
+
 	public static void loadData() {
 		skillsById = new HashMap<>();
 		skillsByCode = new HashMap<>();
@@ -92,6 +94,8 @@ public class D2Skill {
 				skill.allowedItemTypeTypeForStaffmods = D2ItemTypeType.fromCode(skill.allowedItemTypeTypeCodeForStaffmods);
 			}
 			skill.name = D2String.fromKey(skill.skillNameStringCode);
+
+			skillIdToNameMap.put(id, skill.getName());
 		}
 	}
 	

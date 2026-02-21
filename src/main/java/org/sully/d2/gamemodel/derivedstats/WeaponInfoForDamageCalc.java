@@ -3,12 +3,14 @@ package org.sully.d2.gamemodel.derivedstats;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Value;
+import org.sully.d2.gamemodel.DamageOption;
 import org.sully.d2.gamemodel.enums.CharacterClass;
 import org.sully.d2.gamemodel.enums.ItemQuality;
 import org.sully.d2.gamemodel.StatList;
 import org.sully.d2.gamemodel.StatValue;
 import org.sully.d2.gamemodel.staticgamedata.D2ItemType;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Value
@@ -21,8 +23,9 @@ public class WeaponInfoForDamageCalc {
     boolean ethereal;
     int totalSockets;
     int filledSockets;
-    StatList extraStatsFromFilledSockets;
     boolean hasZodInSocket;
+    int jewel1540Count;
+    int ohmCount;
 
     public WeaponInfoForDamageCalc(D2ItemType itemType, ItemQuality itemQuality, StatList magicStats, boolean ethereal, int totalSockets) {
         this.itemType = itemType;
@@ -31,9 +34,12 @@ public class WeaponInfoForDamageCalc {
         this.ethereal = ethereal;
         this.totalSockets = totalSockets;
         this.filledSockets = 0;
-        this.extraStatsFromFilledSockets = null;
         this.hasZodInSocket = false;
+        this.jewel1540Count = 0;
+        this.ohmCount = 0;
     }
+
+
 
     public WeaponInfoForDamageCalc upgradeRareOrUniqueToEliteAndAddSocketIfSocketableAndNotAlreadySocketed() {
         if (itemQuality != ItemQuality.RARE && itemQuality != ItemQuality.UNIQUE) {
@@ -45,6 +51,15 @@ public class WeaponInfoForDamageCalc {
                 .itemType(itemType.getEquipmentInfo().getEliteType())
                 .totalSockets( (maxSockets > 0 && totalSockets == 0) ? 1 : totalSockets)
                 .build();
+    }
+
+    public boolean isAlreadyLongLastingOrCanBeFixedWithSocketingAndZod() {
+        if (isAlreadyLongLasting()) {
+            return true;
+        }
+        if (totalSockets >= 1) return true;
+        // totalSockets==0
+        return (itemType.getMaxSocketsAtHighIlvl() > 0);
     }
 
     public boolean isAlreadyLongLastingOrCanBeFixedWithAZodRune() {
@@ -81,26 +96,27 @@ public class WeaponInfoForDamageCalc {
                 .build();
     }
 
-    public WeaponInfoForDamageCalc add_40ED_15IAS_JewelsToRemainingSockets() {
+    public WeaponInfoForDamageCalc addOhmRunesToRemainingSockets() {
         int remainingSockets = totalSockets - filledSockets;
         if (remainingSockets == 0) return this;
-        if (extraStatsFromFilledSockets != null) {
-            throw new RuntimeException("Didn't implement merging stat lists yet");
-        }
-
-        StatValue ias = StatValue.of(93,0, 15*remainingSockets);
-        StatValue maxDamagePct = StatValue.of(17, 0, 40*remainingSockets);
-        StatValue minDamagePct = StatValue.of(18, 0, 40*remainingSockets);
-
-        StatList statList = new StatList(List.of(ias, maxDamagePct, minDamagePct));
 
         return this.toBuilder()
                 .filledSockets(totalSockets)
-                .extraStatsFromFilledSockets(statList)
+                .ohmCount(ohmCount + remainingSockets)
                 .build();
     }
 
-    public DamageAndDPS getDamage(AttackingContext attackingContext) {
+    public WeaponInfoForDamageCalc add_40ED_15IAS_JewelsToRemainingSockets() {
+        int remainingSockets = totalSockets - filledSockets;
+        if (remainingSockets == 0) return this;
+
+        return this.toBuilder()
+                .filledSockets(totalSockets)
+                .jewel1540Count(jewel1540Count + remainingSockets)
+                .build();
+    }
+
+    public DamageOption getDamage(AttackingContext attackingContext) {
 
         int minDamageBonus = Math.max(magicStats.getStat(21) /* "minDamage" */, magicStats.getStat(23) /* "secondaryMinDamage" */);
         int maxDamageBonus = Math.max(magicStats.getStat(22) /* "maxDamage" */, magicStats.getStat(24) /* "secondaryMaxDamage" */);
@@ -116,10 +132,10 @@ public class WeaponInfoForDamageCalc {
         }
 
         int enhancedDamagePercent = magicStats.getStat(17);
-        enhancedDamagePercent += (extraStatsFromFilledSockets == null ? 0 : extraStatsFromFilledSockets.getStat(17));
+        enhancedDamagePercent += ohmCount*50 + jewel1540Count*40;
 
         int iasOnWeapon = magicStats.getStat(93);
-        iasOnWeapon += (extraStatsFromFilledSockets == null ? 0 : extraStatsFromFilledSockets.getStat(93));
+        iasOnWeapon += 15*jewel1540Count;
 
         double aps = attackingContext.getAttacksPerSecond(itemType, iasOnWeapon);
 
@@ -127,7 +143,22 @@ public class WeaponInfoForDamageCalc {
         int finalMaxDamage = (int) ( maxDamage * (1 + enhancedDamagePercent/100.0) + maxDamageBonus );
         int finalAvgDamage = (finalMinDamage + finalMaxDamage)/2;
         int dps = (int) (aps * (finalMinDamage + finalMaxDamage)/2.0);
-        return new DamageAndDPS(finalMinDamage, finalMaxDamage, finalAvgDamage, dps);
+
+        List<String> socketItems = new ArrayList<>(totalSockets);
+        if (hasZodInSocket) socketItems.add("zod");
+        for (int i = 0; i < ohmCount; i++) socketItems.add("ohm");
+        for (int i = 0; i < jewel1540Count; i++) socketItems.add("15_40");
+        int empty = totalSockets - filledSockets;
+        for (int i = 0; i < empty; i++) socketItems.add("empty");
+
+        return DamageOption.builder()
+                .min(finalMinDamage)
+                .max(finalMaxDamage)
+                .dps(dps)
+                .itemType(itemType.getCode())
+                .sockets(socketItems)
+                .build();
+
     }
 
 

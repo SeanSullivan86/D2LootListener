@@ -122,6 +122,39 @@ public class D2UniqueItem {
 		}
 		return isPerfect;
 	}
+
+	public double getPerfectionScore(D2Item item) {
+		boolean isPerfect = true;
+		int rollCount = 0;
+		double rollSum = 0.0;
+		for (D2PropertyValueRange prop : this.properties) {
+			prop.property = D2Property.fromCode(prop.getPropertyCode());
+
+			D2Property.ItemStatModifier statModifier = prop.property.getStatModifiers().get(0);
+			if (statModifier.getStatFuncBehavior().statValueUsesRandomRoll && prop.min != prop.max) {
+				D2ItemStat stat = D2ItemStat.fromId(prop.statImpactedByRoll.getStatId());
+				int statMin = prop.min;
+				int statMax = prop.max;
+				int statValue = item.getStat(stat.getId(), prop.statImpactedByRoll.getParam()) >> stat.getValShift();
+				if (stat.getId() == 194) {
+					statValue = item.getSockets();
+					int maxSockets = this.itemType.getMaxSocketsAtHighIlvl();
+					statMin = Math.min(maxSockets, prop.min == 0 ? Integer.parseInt(prop.getParam()) : prop.min);
+					statMax = Math.min(maxSockets, prop.max == 0 ? Integer.parseInt(prop.getParam()) : prop.max);
+				}
+
+				boolean isStatBroken = statValue < statMin || statValue > statMax;
+				if (isStatBroken) {
+					System.out.println("Broken Stat " + stat.getCode() + " : " + item.toLongString());
+				}
+
+				rollSum += ((statValue - statMin) * 1.0) / (statMax - statMin);
+				rollCount++;
+			}
+		}
+		if (rollCount == 0) return 1.0;
+		return rollSum / rollCount;
+	}
 	
 	public static D2UniqueItem getFromItem(D2ItemType itemType, StatList stats, String name) {
 		List<D2UniqueItem> uniques = uniquesByItemTypeCode.get(itemType.getCode());
