@@ -28,18 +28,18 @@ public class AssortedMagicItemsConsumer implements D2TCDropConsumer {
     }
 
     @Override
-    public void initializeFromSnapshot(TCDropConsumerSnapshot untypedSnapshot, Map<Long, SerializableD2Item> itemsById) {
+    public void incrementFromSnapshot(TCDropConsumerSnapshot untypedSnapshot, Map<Long, SerializableD2Item> itemsById) {
         AssortedMagicItemsSnapshot snapshot = (AssortedMagicItemsSnapshot) untypedSnapshot;
 
-        totalIterations = snapshot.getTotalIterations();
+        totalIterations += snapshot.getTotalIterations();
 
         int categoryCount = snapshot.getCategories().size();
         for (int i = 0; i < categoryCount; i++) {
             if (Category.valueOf(snapshot.getCategories().get(i)).index != i) {
                 throw new RuntimeException("Unexpected category index " + i + " category " + snapshot.getCategories().get(i));
             }
-            counts[i][0] = snapshot.getCounts()[i][0];
-            counts[i][1] = snapshot.getCounts()[i][1];
+            counts[i][0] += snapshot.getCounts()[i][0];
+            counts[i][1] += snapshot.getCounts()[i][1];
             if (snapshot.getExampleItems()[i][0] != null) examples[i][0] = D2Item.fromSerializableD2Item(itemsById.get(snapshot.getExampleItems()[i][0]));
             if (snapshot.getExampleItems()[i][1] != null) examples[i][1] = D2Item.fromSerializableD2Item(itemsById.get(snapshot.getExampleItems()[i][1]));
         }

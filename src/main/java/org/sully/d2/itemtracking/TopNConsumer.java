@@ -15,6 +15,7 @@ public class TopNConsumer implements D2TCDropConsumer {
 	final Set<String> applicableItemCodes;
 	final Set<ItemQuality> applicableItemQualities;
 	final Predicate<D2Item> additionalCriteria;
+	final boolean includeScoreDistribution;
 
 	@Getter
 	final String id;
@@ -31,20 +32,20 @@ public class TopNConsumer implements D2TCDropConsumer {
 	long totalIterations = 0;
 
 	@Override
-	public void initializeFromSnapshot(TCDropConsumerSnapshot untypedSnapshot, Map<Long, SerializableD2Item> itemsById) {
+	public void incrementFromSnapshot(TCDropConsumerSnapshot untypedSnapshot, Map<Long, SerializableD2Item> itemsById) {
 		TopNSnapshot snapshot = (TopNSnapshot) untypedSnapshot;
-		this.countMatchingItemCodeAndQuality = snapshot.getCountMatchingItemCodeAndQuality();
-		this.countMatchingAdditionalCriteria = snapshot.getCountMatchingAdditionalCriteria();
-		this.totalIterations = snapshot.getTotalIterations();
+		this.countMatchingItemCodeAndQuality += snapshot.getCountMatchingItemCodeAndQuality();
+		this.countMatchingAdditionalCriteria += snapshot.getCountMatchingAdditionalCriteria();
+		this.totalIterations += snapshot.getTotalIterations();
 
 		TopNSnapshot.TopNAndDistributionSnapshot topNSnapshot = snapshot.getStats();
 		int itemCount = topNSnapshot.getTopScores().size();
 		for (int i = 0; i < itemCount; i++) {
-			stats.consume(D2Item.fromSerializableD2Item(itemsById.get(topNSnapshot.getTopItemIds().get(i))), topNSnapshot.getTopScores().get(i));
+			stats.consumeWithoutUpdatingScoreDistribution(
+					D2Item.fromSerializableD2Item(itemsById.get(topNSnapshot.getTopItemIds().get(i))),
+					topNSnapshot.getTopScores().get(i));
 		}
-		stats.overrideScoreDistribution(topNSnapshot.getScoreDistribution());
-
-
+		stats.incrementScoreDistribution(topNSnapshot.getScoreDistribution());
 	}
 
 	@Override
@@ -84,7 +85,7 @@ public class TopNConsumer implements D2TCDropConsumer {
 		TopNSnapshot.TopNAndDistributionSnapshot statsSnapshot = TopNSnapshot.TopNAndDistributionSnapshot.builder()
 				.topItemIds(topItemIds)
 				.topScores(topScores)
-				.scoreDistribution(new HashMap<>(stats.getScoreDistribution()))
+				.scoreDistribution(includeScoreDistribution ? new HashMap<>(stats.getScoreDistribution()) : null)
 				.build();
 
 		return DataReferencingItems.<TCDropConsumerSnapshot>builder()
@@ -101,14 +102,15 @@ public class TopNConsumer implements D2TCDropConsumer {
 
 	private TopNConsumer(Set<String> applicableItemCodes, Set<ItemQuality> applicableItemQualities,
 							Predicate<D2Item> additionalCriteria, String id,
-							Function<D2Item, Integer> scoringFunction, int keepTopNItemsPerCategory) {
+							Function<D2Item, Integer> scoringFunction, int keepTopNItemsPerCategory, boolean includeScoreDistribution) {
 		this.applicableItemCodes = applicableItemCodes;
 		this.applicableItemQualities = applicableItemQualities;
 		this.additionalCriteria = additionalCriteria;
 		this.id = id;
 		this.scoringFunction = scoringFunction;
 		this.keepTopNItemsPerCategory = keepTopNItemsPerCategory;
-		this.stats = new TopNAndScoreDistribution(this.keepTopNItemsPerCategory);
+		this.includeScoreDistribution = includeScoreDistribution;
+		this.stats = new TopNAndScoreDistribution(this.keepTopNItemsPerCategory, includeScoreDistribution);
 	}
 
 	public static Builder withId(String id) {
@@ -128,6 +130,7 @@ public class TopNConsumer implements D2TCDropConsumer {
 		String id;
 		Set<ItemQuality> applicableItemQualities = new HashSet<>();
 		int keepTopNItemsPerCategory = 1;
+		boolean includeScoreDistribution = false;
 
 		private Builder(String id) {
 			this.id = id;
@@ -168,7 +171,7 @@ public class TopNConsumer implements D2TCDropConsumer {
 			}
 
 			return new TopNConsumer(finalizedItemTypeCodes, this.applicableItemQualities,
-					this.additionalCriteria, this.id, this.scoringFunction, this.keepTopNItemsPerCategory);
+					this.additionalCriteria, this.id, this.scoringFunction, this.keepTopNItemsPerCategory, this.includeScoreDistribution);
 		}
 
 		public Builder addItemTypeTypeCodes(String... itemTypeTypeCodes) {
@@ -212,6 +215,11 @@ public class TopNConsumer implements D2TCDropConsumer {
 				}
 				this.excludedItemTypeCodes.add(code);
 			}
+			return this;
+		}
+
+		public Builder includeScoreDistribution() {
+			this.includeScoreDistribution = true;
 			return this;
 		}
 

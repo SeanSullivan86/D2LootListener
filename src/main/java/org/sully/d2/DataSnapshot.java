@@ -22,6 +22,7 @@ public class DataSnapshot {
     String id;
     Map<Long, SerializableD2Item> itemsById;
     Map<DropContextEnum, SingleDropContextSnapshot> dropContexts;
+    SingleDropContextSnapshot aggregatesOverAllDropContexts;
     long nextItemId;
 
     public void logSummary(Consumer<String> printer) {
@@ -50,7 +51,7 @@ public class DataSnapshot {
 
             for (D2TCDropConsumer consumer : consumersByDropContext.get(dropContext)) {
                 if (consumerSnapshotsById.containsKey(consumer.getId())) {
-                    consumer.initializeFromSnapshot(consumerSnapshotsById.get(consumer.getId()), itemsById);
+                    consumer.incrementFromSnapshot(consumerSnapshotsById.get(consumer.getId()), itemsById);
                 }
             }
         }

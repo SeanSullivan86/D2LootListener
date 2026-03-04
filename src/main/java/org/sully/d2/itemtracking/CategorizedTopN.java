@@ -16,6 +16,7 @@ public class CategorizedTopN implements D2TCDropConsumer {
 	final Set<String> applicableItemCodes;
 	final Set<ItemQuality> applicableItemQualities;
 	final Predicate<D2Item> additionalCriteria;
+	final boolean includeScoreDistribution;
 	
 	@Getter
     final String id;
@@ -32,25 +33,27 @@ public class CategorizedTopN implements D2TCDropConsumer {
 	long totalIterations = 0;
 
 	@Override
-	public void initializeFromSnapshot(TCDropConsumerSnapshot untypedSnapshot, Map<Long, SerializableD2Item> itemsById) {
+	public void incrementFromSnapshot(TCDropConsumerSnapshot untypedSnapshot, Map<Long, SerializableD2Item> itemsById) {
 		CategorizedTopNSnapshot snapshot = (CategorizedTopNSnapshot) untypedSnapshot;
-		this.countMatchingItemCodeAndQuality = snapshot.getCountMatchingItemCodeAndQuality();
-		this.countMatchingAdditionalCriteria = snapshot.getCountMatchingAdditionalCriteria();
-		this.totalIterations = snapshot.getTotalIterations();
-		this.statsByCategory = new HashMap<>();
+		this.countMatchingItemCodeAndQuality += snapshot.getCountMatchingItemCodeAndQuality();
+		this.countMatchingAdditionalCriteria += snapshot.getCountMatchingAdditionalCriteria();
+		this.totalIterations += snapshot.getTotalIterations();
 
 		for (Map.Entry<String, CategorizedTopNSnapshot.TopNAndDistributionSnapshot> e : snapshot.getCategories().entrySet()) {
 			String category = e.getKey();
 			CategorizedTopNSnapshot.TopNAndDistributionSnapshot topNSnapshot = e.getValue();
-			TopNAndScoreDistribution topN = new TopNAndScoreDistribution(this.keepTopNItemsPerCategory);
+			if (!statsByCategory.containsKey(category)) {
+				statsByCategory.put(category, new TopNAndScoreDistribution(this.keepTopNItemsPerCategory, this.includeScoreDistribution));
+			}
+			TopNAndScoreDistribution topN = statsByCategory.get(category);
 			int itemCount = topNSnapshot.getTopScores().size();
 			for (int i = 0; i < itemCount; i++) {
-				topN.consume(D2Item.fromSerializableD2Item(itemsById.get(topNSnapshot.getTopItemIds().get(i))), topNSnapshot.getTopScores().get(i));
+				topN.consumeWithoutUpdatingScoreDistribution(
+						D2Item.fromSerializableD2Item(itemsById.get(topNSnapshot.getTopItemIds().get(i))),
+						topNSnapshot.getTopScores().get(i));
 			}
-			topN.overrideScoreDistribution(topNSnapshot.getScoreDistribution());
-			statsByCategory.put(category, topN);
+			topN.incrementScoreDistribution(topNSnapshot.getScoreDistribution());
 		}
-
 	}
 
 	@Override
@@ -68,7 +71,7 @@ public class CategorizedTopN implements D2TCDropConsumer {
 					int score = scoringFunction.apply(item);
 
 					if (!statsByCategory.containsKey(category)) {
-						statsByCategory.put(category, new TopNAndScoreDistribution(this.keepTopNItemsPerCategory));
+						statsByCategory.put(category, new TopNAndScoreDistribution(this.keepTopNItemsPerCategory, this.includeScoreDistribution));
 					}
 					int newRank = statsByCategory.get(category).consume(item, score);
 					if (newRank == 1) {
@@ -96,7 +99,7 @@ public class CategorizedTopN implements D2TCDropConsumer {
 			categorySnapshots.put(category, CategorizedTopNSnapshot.TopNAndDistributionSnapshot.builder()
 					.topItemIds(topItemIds)
 					.topScores(topScores)
-					.scoreDistribution(new HashMap<>(topN.getScoreDistribution()))
+					.scoreDistribution(this.includeScoreDistribution ? new HashMap<>(topN.getScoreDistribution()) : null)
 					.build());
 		}
 		return DataReferencingItems.<TCDropConsumerSnapshot>builder()
@@ -114,46 +117,10 @@ public class CategorizedTopN implements D2TCDropConsumer {
     public List<String> getCategories() {
 		return new ArrayList<>(statsByCategory.keySet());
 	}
-
-	/*
-	public List<ItemAndScore<D2Item>> getTopN(String category) {
-		if (statsByCategory.containsKey(category)) {
-			return statsByCategory.get(category).getTopN();
-		}
-		return new ArrayList<>();
-	}
-
-	public ConcurrentHashMap<Integer,Long> getScoreDistribution(String category) {
-		if (statsByCategory.containsKey(category)) {
-			return statsByCategory.get(category).getScoreDistribution();
-		}
-		return null;
-	} */
-	
-/*
-	
-	public void printOverallCounts(PrintWriter out) {
-		out.println(String.join("\t", name, ""+this.countMatchingItemCodeAndQuality, ""+this.countMatchingAdditionalCriteria));
-	}
-	
-	public void printTopItemsPerCategory(PrintWriter out) {
-		for (String category : statsByCategory.keySet()) {
-			TopNAndScoreDistribution<D2Item> topN = statsByCategory.get(category);
-			topN.printTopItemsOnePerLine(out, name + "\t" + category + "\t", D2Item::toLongString);
-		}
-	}
-	
-	public void printScoreDistributionsByCategory(PrintWriter out) {
-		for (String category : statsByCategory.keySet()) {
-			TopNAndScoreDistribution<D2Item> topN = statsByCategory.get(category);
-			topN.printScoreDistribution(out, name + "\t" + category + "\t");
-		}
-	} */
-
 	
 	private CategorizedTopN(Set<String> applicableItemCodes, Set<ItemQuality> applicableItemQualities,
 							Predicate<D2Item> additionalCriteria, String id, Function<D2Item, String> categorizer,
-							Function<D2Item, Integer> scoringFunction, int keepTopNItemsPerCategory) {
+							Function<D2Item, Integer> scoringFunction, int keepTopNItemsPerCategory, boolean includeScoreDistribution) {
 		this.applicableItemCodes = applicableItemCodes;
 		this.applicableItemQualities = applicableItemQualities;
 		this.additionalCriteria = additionalCriteria;
@@ -161,6 +128,7 @@ public class CategorizedTopN implements D2TCDropConsumer {
 		this.categorizer = categorizer;
 		this.scoringFunction = scoringFunction;
 		this.keepTopNItemsPerCategory = keepTopNItemsPerCategory;
+		this.includeScoreDistribution = includeScoreDistribution;
 	}
 
 	public static Builder withId(String id) {
@@ -181,6 +149,7 @@ public class CategorizedTopN implements D2TCDropConsumer {
 		String id;
 		Set<ItemQuality> applicableItemQualities = new HashSet<>();
 		int keepTopNItemsPerCategory = 1;
+		boolean includeScoreDistribution = false;
 		
 		private Builder(String id) {
 			this.id = id;
@@ -221,7 +190,12 @@ public class CategorizedTopN implements D2TCDropConsumer {
 			}
 			
 			return new CategorizedTopN(finalizedItemTypeCodes, this.applicableItemQualities,
-				this.additionalCriteria, this.id, this.categorizer, this.scoringFunction, this.keepTopNItemsPerCategory);
+				this.additionalCriteria, this.id, this.categorizer, this.scoringFunction, this.keepTopNItemsPerCategory, this.includeScoreDistribution);
+		}
+
+		public Builder includeScoreDistribution() {
+			this.includeScoreDistribution = true;
+			return this;
 		}
 		
 		public Builder addItemTypeTypeCodes(String... itemTypeTypeCodes) {

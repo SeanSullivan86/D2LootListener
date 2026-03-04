@@ -30,10 +30,9 @@ public class ItemGrid implements D2TCDropConsumer {
 
 
 	@Override
-	public void initializeFromSnapshot(TCDropConsumerSnapshot snapshotUntyped, Map<Long, SerializableD2Item> itemsById) {
+	public void incrementFromSnapshot(TCDropConsumerSnapshot snapshotUntyped, Map<Long, SerializableD2Item> itemsById) {
 		ItemGridSnapshot snapshot = (ItemGridSnapshot) snapshotUntyped;
 
-		counts = new HashMap<>();
 		int rowCount = snapshot.getRowValues().size();
 		int columnCount = snapshot.getColumnValues().size();
 		for (int row = 0; row < rowCount; row++) {
@@ -41,7 +40,7 @@ public class ItemGrid implements D2TCDropConsumer {
 				incrementCount(snapshot.getRowValues().get(row), snapshot.getColumnValues().get(col), snapshot.getCounts()[row][col]);
 			}
 		}
-		this.totalIterations = snapshot.getTotalIterations();
+		this.totalIterations += snapshot.getTotalIterations();
 	}
 
 	@Override

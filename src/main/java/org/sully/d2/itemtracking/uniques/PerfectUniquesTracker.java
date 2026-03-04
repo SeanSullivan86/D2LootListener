@@ -87,12 +87,18 @@ public class PerfectUniquesTracker implements D2TCDropConsumer {
     }
 
     @Override
-    public void initializeFromSnapshot(TCDropConsumerSnapshot untypedSnapshot, Map<Long, SerializableD2Item> itemsById) {
+    public void incrementFromSnapshot(TCDropConsumerSnapshot untypedSnapshot, Map<Long, SerializableD2Item> itemsById) {
         PerfectUniquesSnapshot snapshot = (PerfectUniquesSnapshot) untypedSnapshot;
         for (Map.Entry<String, UniqueStatsSnapshot> e : snapshot.getStatsByName().entrySet()) {
-            uniqueStatsByName.put(e.getKey(), UniqueStats.fromSnapshot(e.getValue(), itemsById));
+            if (uniqueStatsByName.containsKey(e.getKey())) {
+                uniqueStatsByName.put(e.getKey(), UniqueStats.merge(
+                        UniqueStats.fromSnapshot(e.getValue(), itemsById),
+                        uniqueStatsByName.get(e.getKey())));
+            } else {
+                uniqueStatsByName.put(e.getKey(), UniqueStats.fromSnapshot(e.getValue(), itemsById));
+            }
         }
-        totalIterations = snapshot.getTotalIterations();
+        totalIterations += snapshot.getTotalIterations();
         if (! snapshot.getId().equals(id)) {
             throw new RuntimeException("Unexpected id : " + snapshot.getId());
         }

@@ -26,7 +26,7 @@ public class HardcodedTCDropConsumerConfiguration {
         return consumersByDropContext;
     }
 
-    private List<D2TCDropConsumer> initializeConsumersForSingleDropContext(DropContextEnum dropContext) {
+    public List<D2TCDropConsumer> initializeConsumersForSingleDropContext(DropContextEnum dropContext) {
 
         List<D2TCDropConsumer> allConsumers = new ArrayList<>();
 

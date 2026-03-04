@@ -22,6 +22,33 @@ public class UniqueStats {
     public boolean canBeNonEth;
     public long possibleRolls;
 
+    public static UniqueStats merge(UniqueStats a, UniqueStats b) {
+        if (! (a.name.equals(b.name))) { throw new RuntimeException("Cannot merge " + a + " and " + b); }
+        UniqueStats stats = new UniqueStats();
+        stats.name = a.name;
+        stats.itemTypeCode = a.itemTypeCode;
+        stats.maxPerfection = Math.max(a.maxPerfection,b.maxPerfection);
+        stats.maxEthPerfection = Math.max(a.maxEthPerfection,b.maxEthPerfection);
+        stats.nonEthCount = a.nonEthCount + b.nonEthCount;
+        stats.ethCount = a.ethCount + b.ethCount;
+        stats.perfectCount = a.perfectCount + b.perfectCount;
+        stats.perfectEthCount = a.perfectEthCount + b.perfectEthCount;
+        if (a.maxPerfection > b.maxPerfection || (a.nonEthCount > 0 && b.nonEthCount == 0)) {
+            stats.bestItem = a.bestItem;
+        } else {
+            stats.bestItem = b.bestItem;
+        }
+        if (a.maxEthPerfection > b.maxEthPerfection || (a.ethCount > 0 && b.ethCount == 0)) {
+            stats.bestEthItem = a.bestEthItem;
+        } else {
+            stats.bestEthItem = b.bestEthItem;
+        }
+        stats.canBeEth = a.canBeEth;
+        stats.canBeNonEth = a.canBeNonEth;
+        stats.possibleRolls = a.possibleRolls;
+        return stats;
+    }
+
     public static UniqueStats fromSnapshot(UniqueStatsSnapshot snapshot,
                                            Map<Long, SerializableD2Item> itemsById) {
         UniqueStats x = new UniqueStats();

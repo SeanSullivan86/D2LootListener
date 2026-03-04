@@ -1,14 +1,11 @@
 package org.sully.d2.itemtracking;
 
-import lombok.Builder;
 import lombok.Getter;
-import lombok.Value;
 import org.sully.d2.SerializableD2Item;
 import org.sully.d2.gamemodel.D2Item;
 import org.sully.d2.gamemodel.derivedstats.SkillBonuses;
 import org.sully.d2.gamemodel.enums.ItemQuality;
 import org.sully.d2.gamemodel.staticgamedata.D2Skill;
-import org.sully.d2.server.ConsumerSummary;
 
 import java.util.*;
 
@@ -27,10 +24,18 @@ public class StaffmodTracker implements D2TCDropConsumer {
     }
 
     @Override
-    public void initializeFromSnapshot(TCDropConsumerSnapshot untypedSnapshot, Map<Long, SerializableD2Item> itemsById) {
+    public void incrementFromSnapshot(TCDropConsumerSnapshot untypedSnapshot, Map<Long, SerializableD2Item> itemsById) {
         StaffmodTrackerSnapshot snapshot = (StaffmodTrackerSnapshot) untypedSnapshot;
-        this.countsBySkillId = new HashMap<>(snapshot.getCountsBySkillId());
-        this.totalIterations = snapshot.getTotalIterations();
+
+        for (Map.Entry<Integer, Integer> e : snapshot.getCountsBySkillId().entrySet()) {
+            if (countsBySkillId.containsKey(e.getKey())) {
+                countsBySkillId.put(e.getKey(), countsBySkillId.get(e.getKey()) + e.getValue());
+            } else {
+                countsBySkillId.put(e.getKey(), e.getValue());
+            }
+        }
+
+        this.totalIterations += snapshot.getTotalIterations();
     }
 
     @Override

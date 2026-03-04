@@ -24,14 +24,17 @@ public class BasicStatsConsumer implements D2TCDropConsumer {
     }
 
     @Override
-    public void initializeFromSnapshot(TCDropConsumerSnapshot untypedSnapshot, Map<Long, SerializableD2Item> itemsById) {
+    public void incrementFromSnapshot(TCDropConsumerSnapshot untypedSnapshot, Map<Long, SerializableD2Item> itemsById) {
         BasicStatsSnapshot snapshot = (BasicStatsSnapshot) untypedSnapshot;
         for (int i = 0; i < 10; i++) {
-            countsByQuality[i] = snapshot.getCountsByQuality()[i];
+            countsByQuality[i] += snapshot.getCountsByQuality()[i];
             Long itemId = snapshot.getMostRecentItemIdsByQuality()[i];
-            mostRecentItemByQuality[i] = itemId == null ? null : D2Item.fromSerializableD2Item(itemsById.get(itemId));
+            if (itemId != null) {
+                mostRecentItemByQuality[i] = D2Item.fromSerializableD2Item(itemsById.get(itemId));
+            }
+
         }
-        this.totalIterations = snapshot.getTotalIterations();
+        this.totalIterations += snapshot.getTotalIterations();
     }
 
     @Override

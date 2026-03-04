@@ -10,7 +10,7 @@ public interface D2TCDropConsumer {
 
 	long getTotalIterations();
 
-	void initializeFromSnapshot(TCDropConsumerSnapshot snapshot, Map<Long, SerializableD2Item> itemsById);
+	void incrementFromSnapshot(TCDropConsumerSnapshot snapshot, Map<Long, SerializableD2Item> itemsById);
 
 	void consume(D2TCDrop tcDrop);
 

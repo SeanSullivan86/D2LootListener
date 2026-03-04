@@ -20,9 +20,6 @@ public class D2LootListener {
 		run();
 	}
 
-
-
-
 	private static void run() throws Exception {
 		int d2InstanceCount = 1;
 		String snapshotFolder = "C:\\Users\\sully\\D2LootSnapshots";
@@ -127,15 +124,13 @@ public class D2LootListener {
 			for (D2TCDropConsumer consumer : consumersByDropContext.get(dropContextsByGameIndex[d2InstanceIndex])) {
 				consumer.consume(tcDrop);
 			}
-			// todo also consume again for special "ALL" dropContext ?
-
 
 			iteration++;
 
-			if (iteration % 1_000_000 == 0) {
+			if (iteration % 100_000 == 0) {
 				long newTimestamp = System.currentTimeMillis();
-				System.out.println(iteration + " drops done. Last 1 million in " + (newTimestamp - lastMillionItemTimestamp) + " ms. (" +
-								String.format("%.3f", (1_000_000 * 1000.0 / (newTimestamp - lastMillionItemTimestamp))) + " per second)");
+				System.out.println(iteration + " drops done. Last 100k in " + (newTimestamp - lastMillionItemTimestamp) + " ms. (" +
+								String.format("%.3f", (100_000 * 1000.0 / (newTimestamp - lastMillionItemTimestamp))) + " per second)");
 				lastMillionItemTimestamp = newTimestamp;
 			}
 
@@ -170,9 +165,6 @@ public class D2LootListener {
 						}
 					}
 
-
-
-
 					dropContextSnapshots.put(dropContext,
 							SingleDropContextSnapshot.builder()
 									.dropContextName(dropContext.name())
@@ -180,8 +172,33 @@ public class D2LootListener {
 									.build());
 				}
 
+				// Initialize Empty Consumers for the "ALL" DropContext
+				Map<String, D2TCDropConsumer> aggregateConsumersById = new HashMap<>();
+				for (D2TCDropConsumer aggregateConsumer : consumerConfig.initializeConsumersForSingleDropContext(DropContextEnum.ALL)) {
+					aggregateConsumersById.put(aggregateConsumer.getId(), aggregateConsumer);
+				}
+
+				// Increment the stats in the "ALL" consumers, from the snapshots we've already generated for the individual dropContexts
+				for (SingleDropContextSnapshot singleDropContextSnapshot : dropContextSnapshots.values()) {
+					for (TCDropConsumerSnapshot consumerSnapshot : singleDropContextSnapshot.getConsumersById().values()) {
+						if (aggregateConsumersById.containsKey(consumerSnapshot.getId())) {
+							aggregateConsumersById.get(consumerSnapshot.getId()).incrementFromSnapshot(consumerSnapshot, itemsReferencedInSnapshots);
+						}
+					}
+				}
+
+				// Generate the Snapshots of each of the consumers for the "ALL" DropContext
+				Map<String, TCDropConsumerSnapshot> aggregateConsumerSnapshotsById = new HashMap<>();
+				for (D2TCDropConsumer aggregateConsumer : aggregateConsumersById.values()) {
+					aggregateConsumerSnapshotsById.put(aggregateConsumer.getId(), aggregateConsumer.takeSnapshot().getData());
+				}
+
 				DataSnapshot newSnapshot = DataSnapshot.builder()
 						.dropContexts(dropContextSnapshots)
+						.aggregatesOverAllDropContexts(SingleDropContextSnapshot.builder()
+								.dropContextName(DropContextEnum.ALL.name())
+								.consumersById(aggregateConsumerSnapshotsById)
+								.build())
 						.itemsById(itemsReferencedInSnapshots)
 						.nextItemId(D2Item.nextId)
 						.id(SnapshotManager.generateSnapshotId())
@@ -207,7 +224,7 @@ public class D2LootListener {
 
 	}
 
-	private static void loadAndLinkStaticGameData() {
+	static void loadAndLinkStaticGameData() {
 		D2ItemType.loadData();
 		D2ItemTypeType.loadData();
 		D2Skill.loadData();

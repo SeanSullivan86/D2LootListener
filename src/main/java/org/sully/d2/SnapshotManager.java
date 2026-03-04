@@ -1,5 +1,6 @@
 package org.sully.d2;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.File;
@@ -19,6 +20,7 @@ public class SnapshotManager {
 
     public SnapshotManager(String snapshotFolder) {
         this.snapshotFolder = new File(snapshotFolder);
+        objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
     }
 
     public Optional<DataSnapshot> retrieveMostRecentSnapshot() {

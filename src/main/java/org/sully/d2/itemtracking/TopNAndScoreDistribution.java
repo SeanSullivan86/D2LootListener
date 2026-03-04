@@ -15,8 +15,10 @@ public class TopNAndScoreDistribution {
 	@Getter
 	private TreeSet<ItemAndScore> topN;
 	private int minScoreForTopN;
+	private boolean includeScoreDistribution;
 	
-	public TopNAndScoreDistribution(int n) {
+	public TopNAndScoreDistribution(int n, boolean includeScoreDistribution) {
+		this.includeScoreDistribution = includeScoreDistribution;
 		this.n = n;
 
 		// max score is first set item (it's in descending order)
@@ -24,20 +26,19 @@ public class TopNAndScoreDistribution {
 		this.scoreDistribution = new HashMap<>();
 	}
 
-	public void overrideScoreDistribution(Map<Integer,Long> scores) {
-		this.scoreDistribution = new HashMap<>(scores);
-	}
-
 	public void incrementScoreDistribution(Map<Integer,Long> newScores) {
-		for (Map.Entry<Integer, Long> e : newScores.entrySet()) {
-			int score = e.getKey();
-			long frequency = e.getValue();
-			if (scoreDistribution.containsKey(score)) {
-				scoreDistribution.put(score, scoreDistribution.get(score) + frequency);
-			} else {
-				scoreDistribution.put(score, frequency);
+		if (includeScoreDistribution) {
+			for (Map.Entry<Integer, Long> e : newScores.entrySet()) {
+				int score = e.getKey();
+				long frequency = e.getValue();
+				if (scoreDistribution.containsKey(score)) {
+					scoreDistribution.put(score, scoreDistribution.get(score) + frequency);
+				} else {
+					scoreDistribution.put(score, frequency);
+				}
 			}
 		}
+
 	}
 
 	public void consumeWithoutUpdatingScoreDistribution(D2Item item, int value) {
@@ -70,7 +71,7 @@ public class TopNAndScoreDistribution {
 			}
 		}
 
-		if (updateScoreDistribution) {
+		if (includeScoreDistribution && updateScoreDistribution) {
 			if (scoreDistribution.containsKey(value)) {
 				scoreDistribution.put(value, 1 + scoreDistribution.get(value));
 			} else {
