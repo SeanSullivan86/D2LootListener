@@ -2,6 +2,8 @@ package org.sully.d2;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.sully.d2.gamemodel.D2Item;
+import org.sully.d2.gamemodel.D2ItemMixinForWebsiteSerialization;
 
 import java.io.File;
 import java.io.IOException;
@@ -16,11 +18,15 @@ public class SnapshotManager {
 
     private final File snapshotFolder;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper websiteSerializer = new ObjectMapper();
     private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("uuuuMMdd'T'HHmmssSSS'Z'").withZone(ZoneId.of("UTC"));
 
     public SnapshotManager(String snapshotFolder) {
         this.snapshotFolder = new File(snapshotFolder);
         objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+
+        websiteSerializer.addMixIn(SerializableD2Item.class, D2ItemMixinForWebsiteSerialization.class);
+        websiteSerializer.setSerializationInclusion(JsonInclude.Include.NON_NULL);
     }
 
     public Optional<DataSnapshot> retrieveMostRecentSnapshot() {
@@ -48,6 +54,13 @@ public class SnapshotManager {
         File snapshotFile = new File(snapshotFolder, snapshot.getId());
         try {
             objectMapper.writeValue(snapshotFile, snapshot);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        File webSnapshot = new File(snapshotFolder, "WEB_" + snapshot.getId());
+        try {
+            websiteSerializer.writeValue(webSnapshot, snapshot);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

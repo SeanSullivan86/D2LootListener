@@ -16,12 +16,20 @@ import java.util.concurrent.TimeUnit;
 
 public class D2LootListener {
 
+	static final EnumMap<DropContextEnum,Double> processingTimeByDropContext = new EnumMap<>(Map.of(
+			DropContextEnum.HELL_BAAL, 1.0 / 2200,
+			DropContextEnum.L85_UNIQUE_MOB, 1.0 / 12000,
+			DropContextEnum.L85_NORMAL_MOB, 1.0 / 70000
+	));
+
+	public static final int SNAPSHOT_INTERVAL_SECONDS = 1800;
+
 	public static void main(String[] args) throws Exception {
 		run();
 	}
 
 	private static void run() throws Exception {
-		int d2InstanceCount = 1;
+		int d2InstanceCount = 5;
 		String snapshotFolder = "C:\\Users\\sully\\D2LootSnapshots";
 
 		SnapshotManager snapshotManager = new SnapshotManager(snapshotFolder);
@@ -83,10 +91,11 @@ public class D2LootListener {
 			System.out.println("Warning : No previous Data Snapshot found");
 		}
 
-		//InputStream in = new BufferedInputStream(new FileInputStream("C:\\Users\\12063\\streamdata.bin"));
 		InputStream in;
 
-		long nextSnapshotTime = System.nanoTime() + TimeUnit.SECONDS.toNanos(300);
+		long nextSnapshotTime = System.nanoTime() + TimeUnit.SECONDS.toNanos(SNAPSHOT_INTERVAL_SECONDS);
+
+		double[] nextProcessingTimes = initializeProcessingTimes(dropContextsByGameIndex);
 
 
 		long iteration = 0;
@@ -100,26 +109,21 @@ public class D2LootListener {
 		long lastMillionItemTimestamp = System.currentTimeMillis();
 
 		while (true) {
-			d2InstanceIndex = (int) (iteration % d2InstanceCount);
-			in = inputStreams[d2InstanceIndex];
 
+			d2InstanceIndex = getMinIndex(nextProcessingTimes, d2InstanceCount);
+			nextProcessingTimes[d2InstanceIndex] += processingTimeByDropContext.get(dropContextsByGameIndex[d2InstanceIndex]);
+
+			in = inputStreams[d2InstanceIndex];
 
 			IOUtils.readFully(in, itemBuffer, 0, 16);
 			buf = ByteBuffer.wrap(itemBuffer).order(ByteOrder.LITTLE_ENDIAN);
 			multidropMessageSize = buf.getInt(0);
 			itemCountInMultidrop = buf.getInt(12);
 
-			/*System.out.println("Multidrop iteration " + multidropIterationInSingleGame + ", messageSize " + multidropMessageSize
-					+ " itemCount " + itemCountInMultidrop);*/
-
 			IOUtils.readFully(in, itemBuffer, 0, multidropMessageSize - 16);
 			buf = ByteBuffer.wrap(itemBuffer).order(ByteOrder.LITTLE_ENDIAN);
 
 			tcDrop = D2TCDrop.fromData(itemBuffer, buf, dropContextsByGameIndex[d2InstanceIndex], itemCountInMultidrop);
-
-			//try { Thread.sleep(1000); } catch (InterruptedException e) { throw new RuntimeException(e); }
-
-
 
 			for (D2TCDropConsumer consumer : consumersByDropContext.get(dropContextsByGameIndex[d2InstanceIndex])) {
 				consumer.consume(tcDrop);
@@ -127,10 +131,10 @@ public class D2LootListener {
 
 			iteration++;
 
-			if (iteration % 100_000 == 0) {
+			if (iteration % 10_000_000 == 0) {
 				long newTimestamp = System.currentTimeMillis();
-				System.out.println(iteration + " drops done. Last 100k in " + (newTimestamp - lastMillionItemTimestamp) + " ms. (" +
-								String.format("%.3f", (100_000 * 1000.0 / (newTimestamp - lastMillionItemTimestamp))) + " per second)");
+				System.out.println(iteration + " drops done. Last 10m in " + (newTimestamp - lastMillionItemTimestamp) + " ms. (" +
+								String.format("%.3f", (10_000_000 * 1000.0 / (newTimestamp - lastMillionItemTimestamp))) + " per second)");
 				lastMillionItemTimestamp = newTimestamp;
 			}
 
@@ -212,11 +216,15 @@ public class D2LootListener {
 
 				System.out.println("Finished saving snapshot. Time spent = " + String.format("%.1f", ((nanoTimeAtEndOfSnapshotting - nanoTimeAtStartOfSnapshotting) / 1_000_000.0)) + " ms");
 
-				nextSnapshotTime = nanoTimeAtEndOfSnapshotting + TimeUnit.SECONDS.toNanos(300);
+				nextSnapshotTime = nanoTimeAtEndOfSnapshotting + TimeUnit.SECONDS.toNanos(SNAPSHOT_INTERVAL_SECONDS);
 
 				// todo send the snapshot to a different server ?
 
 				previousSnapshot = newSnapshot;
+			}
+
+			if ((iteration & 0xFFFFFFF) == 0) {
+				nextProcessingTimes = initializeProcessingTimes(dropContextsByGameIndex);
 			}
 		}
 
@@ -239,6 +247,26 @@ public class D2LootListener {
 
 		D2Property.linkData();
 		D2UniqueItem.linkData();
+	}
+
+	private static int getMinIndex(double[] nextProcessingTimes, int n) {
+		int minIndex = -1;
+		double minValue = Double.MAX_VALUE;
+		for (int i = 0; i < n; i++) {
+			if (nextProcessingTimes[i] < minValue) {
+				minIndex = i;
+				minValue = nextProcessingTimes[i];
+			}
+		}
+		return minIndex;
+	}
+
+	private static double[] initializeProcessingTimes(DropContextEnum[] dropContexts) {
+		double[] nextProcessingTimes = new double[dropContexts.length];
+		for (int i = 0; i < dropContexts.length; i++) {
+			nextProcessingTimes[i] = D2LootListener.processingTimeByDropContext.get(dropContexts[i]) * Math.random();
+		}
+		return nextProcessingTimes;
 	}
 	
 

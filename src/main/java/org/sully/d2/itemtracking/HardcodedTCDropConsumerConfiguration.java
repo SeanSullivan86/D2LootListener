@@ -2,10 +2,7 @@ package org.sully.d2.itemtracking;
 
 import org.sully.d2.gamemodel.D2Item;
 import org.sully.d2.gamemodel.DamageOption;
-import org.sully.d2.gamemodel.derivedstats.AttackingContext;
 import org.sully.d2.gamemodel.derivedstats.SkillBonuses;
-import org.sully.d2.gamemodel.derivedstats.WeaponInfoForDamageCalc;
-import org.sully.d2.gamemodel.enums.CharacterClass;
 import org.sully.d2.gamemodel.enums.ItemQuality;
 import org.sully.d2.gamemodel.enums.SkillTab;
 import org.sully.d2.gamemodel.staticgamedata.D2ItemStats;
@@ -30,6 +27,14 @@ public class HardcodedTCDropConsumerConfiguration {
 
         List<D2TCDropConsumer> allConsumers = new ArrayList<>();
 
+        allConsumers.add(TopNConsumer.withId("GOLD")
+                .addItemTypeCodes("gld")
+                .allowItemQualities(ItemQuality.NORMAL)
+                .withScoringFunction(item -> item.getGold())
+                .withCountOfTopScoringItemsToKeepInEachCategory(1)
+                .includeScoreDistribution()
+                .build());
+
         allConsumers.add( new ItemGrid(
                 "ITEM_COUNTS_BY_TYPE_AND_QUALITY",
                 item -> item.getItemType().getName(),
@@ -50,6 +55,8 @@ public class HardcodedTCDropConsumerConfiguration {
                 Comparator.naturalOrder(),
                 Comparator.naturalOrder()));
 
+
+
         allConsumers.add(new BasicStatsConsumer("BASIC_STATS"));
 
         allConsumers.add(new AssortedMagicItemsConsumer("MAGIC_ITEMS"));
@@ -60,6 +67,7 @@ public class HardcodedTCDropConsumerConfiguration {
                 .addItemTypeTypeCodes("boot")
                 .allowItemQualities(ItemQuality.RARE)
                 .withAdditionalItemCriteria(item ->
+                        (! item.isEthereal()) &&
                         item.hasStat(D2ItemStats.FIRE_RESIST.statId) &&
                         item.hasStat(D2ItemStats.LIGHTNING_RESIST.statId) &&
                         item.hasStat(D2ItemStats.COLD_RESIST.statId))
@@ -73,6 +81,7 @@ public class HardcodedTCDropConsumerConfiguration {
         allConsumers.add(TopNConsumer.withId("RARE_CASTER_BOOTS")
                 .addItemTypeTypeCodes("boot")
                 .allowItemQualities(ItemQuality.RARE)
+                .withAdditionalItemCriteria(item -> (!item.isEthereal()))
                 .withScoringFunction(D2Item::getCasterValueForRareArmorOrJewelry)
                 .withCountOfTopScoringItemsToKeepInEachCategory(10)
                 .build());
@@ -94,6 +103,7 @@ public class HardcodedTCDropConsumerConfiguration {
         allConsumers.add(TopNConsumer.withId("RARE_CASTER_CIRCLETS")
                 .addItemTypeTypeCodes("circ")
                 .allowItemQualities(ItemQuality.RARE)
+                .withAdditionalItemCriteria(item -> (!item.isEthereal()))
                 .withScoringFunction(D2Item::getCasterValueForRareArmorOrJewelry)
                 .withCountOfTopScoringItemsToKeepInEachCategory(10)
                 .build());
@@ -173,40 +183,34 @@ public class HardcodedTCDropConsumerConfiguration {
 
         allConsumers.add(new StaffmodTracker("STAFFMOD_TRACKER"));
 
-        /*
 
 
-
-        allConsumers.add(CategorizedTopN.named("Rare Melee Jewels")
+        allConsumers.add(TopNConsumer.withId("RARE_MELEE_JEWELS")
                 .addItemTypeTypeCodes("jewl")
                 .withAdditionalItemCriteria(item -> item.getStat(D2ItemStats.MAXDAMAGE_PERCENT.statId) > 20)
                 .allowItemQualities(ItemQuality.RARE)
-                .withCategorizer(item -> "Any")
                 .withScoringFunction(item -> item.getStat(D2ItemStats.MAXDAMAGE_PERCENT.statId)
                         + item.getStat(D2ItemStats.FIRE_RESIST.statId)/3 + item.getStat(D2ItemStats.LIGHTNING_RESIST.statId)/3 + item.getStat(D2ItemStats.COLD_RESIST.statId)/3
                         + item.getStat(D2ItemStats.STRENGTH.statId) + item.getStat(D2ItemStats.DEXTERITY.statId) + item.getStat(D2ItemStats.ATTACK_RATING.statId)/5)
-                .withCountOfTopScoringItemsToKeepInEachCategory(20)
+                .withCountOfTopScoringItemsToKeepInEachCategory(10)
                 .build());
 
-
-        allConsumers.add(CategorizedTopN.named("Illegal Barb Staffmods")
-                .addItemTypeTypeCodes("phlm")
-                .allowItemQualities(ItemQuality.INFERIOR, ItemQuality.NORMAL, ItemQuality.SUPERIOR, ItemQuality.MAGIC, ItemQuality.RARE)
-                .withAdditionalItemCriteria(item -> !item.getIllegalStaffmods().isEmpty())
-                .withCategorizer(item -> item.getIllegalStaffmods().stream().map(s -> s.getSkill().getName() + "(" + s.getSkillLevelBonus() + ")").sorted().collect(Collectors.joining(" ")))
-                .withScoringFunction(item -> item.getQuality().id)
-                .withCountOfTopScoringItemsToKeepInEachCategory(5)
-                .build());
-
-        allConsumers.add(CategorizedTopN.named("Wind Druid Pelts")
+        allConsumers.add(CategorizedTopN.withId("WIND_DRUID_PELTS")
                 .addItemTypeTypeCodes("pelt")
-                .allowItemQualities(ItemQuality.MAGIC, ItemQuality.RARE)
-                .withAdditionalItemCriteria(item -> item.getTotalBonusIncludingSkillTabAndClassSkillBonuses(D2Skills.TORNADO.get()) >= 4)
+                .allowItemQualities(ItemQuality.RARE, ItemQuality.MAGIC, ItemQuality.NORMAL)
                 .withCategorizer(item -> item.getQuality().name())
-                .withScoringFunction(item -> item.getTotalBonusIncludingSkillTabAndClassSkillBonuses(D2Skills.TORNADO.get()))
-                .withCountOfTopScoringItemsToKeepInEachCategory(5)
-                .build()); */
-
+                .withAdditionalItemCriteria(item -> item.getTotalBonusIncludingSkillTabAndClassSkillBonuses(D2Skills.TORNADO.get()) >= 4)
+                .withScoringFunction(item -> {
+                    double result = item.getCasterValueForRareArmorOrJewelry();
+                    result += Optional.ofNullable(item.getSkillTabBonus(SkillTab.DRUID_ELEMENTAL)).map(SkillBonuses.SkillTabBonus::getSkillLevelBonus).orElse(0) * 90;
+                    result += 75 * item.getIndividualSkillBonusWithoutTabOrCharacterClassSkillAffixes(D2Skills.TORNADO.get());
+                    result += 10 * item.getIndividualSkillBonusWithoutTabOrCharacterClassSkillAffixes(D2Skills.HURRICANE.get());
+                    result += 5 * item.getIndividualSkillBonusWithoutTabOrCharacterClassSkillAffixes(D2Skills.CYCLONE_ARMOR.get());
+                    if (item.isEthereal()) result -= 100;
+                    return (int) result;
+                })
+                .withCountOfTopScoringItemsToKeepInEachCategory(10)
+                .build());
 
         Predicate<D2Item> weaponFilter_1Handed_Ethereal = item -> item.isOneHandableByBarbarian() && item.isEthereal();
         Predicate<D2Item> weaponFilter_2Handed_Ethereal = item -> item.getItemType().getWeaponInfo().isTwoHanded() && item.isEthereal();
@@ -312,6 +316,32 @@ public class HardcodedTCDropConsumerConfiguration {
             }
 
         }
+
+        allConsumers.add(CategorizedTopN.withId("FOOLS_WEAPON|2_HANDED")
+                .addItemTypeTypeCodes("weap")
+                .excludeItemTypeTypeCodes("staf","wand","orb")
+                .allowItemQualities(ItemQuality.RARE)
+                .withAdditionalItemCriteria(item ->
+                        item.getItemType().getWeaponInfo().isTwoHanded() &&
+                        item.getStat(D2ItemStats.ATTACK_RATING_PER_LEVEL.statId) == 33 &&
+                        item.getWeaponInfoForDamageCalc().isAlreadyLongLastingOrCanBeFixedWithSocketingAndZod())
+                .withCategorizer(item -> item.getItemTypeType().getCode())
+                .withScoringFunction(item -> item.getUpSocketZod4015().getDps())
+                .withCountOfTopScoringItemsToKeepInEachCategory(5)
+                .build());
+
+        allConsumers.add(CategorizedTopN.withId("FOOLS_WEAPON|1_HANDED")
+                .addItemTypeTypeCodes("weap")
+                .excludeItemTypeTypeCodes("staf","wand","orb")
+                .allowItemQualities(ItemQuality.RARE)
+                .withAdditionalItemCriteria(item ->
+                        item.isOneHandableByBarbarian() &&
+                        item.getStat(D2ItemStats.ATTACK_RATING_PER_LEVEL.statId) == 33 &&
+                        item.getWeaponInfoForDamageCalc().isAlreadyLongLastingOrCanBeFixedWithSocketingAndZod())
+                .withCategorizer(item -> item.getItemTypeType().getCode())
+                .withScoringFunction(item -> (item.getUpSocketZod4015_1h() == null ? item.getUpSocketZod4015() : item.getUpSocketZod4015_1h()).getDps())
+                .withCountOfTopScoringItemsToKeepInEachCategory(5)
+                .build());
 
         return allConsumers;
     }
