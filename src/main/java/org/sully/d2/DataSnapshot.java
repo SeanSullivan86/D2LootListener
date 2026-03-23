@@ -5,11 +5,7 @@ import lombok.Value;
 import org.sully.d2.itemtracking.D2TCDropConsumer;
 import org.sully.d2.itemtracking.DropContextEnum;
 import org.sully.d2.itemtracking.TCDropConsumerSnapshot;
-import org.sully.d2.server.ConsumerSummary;
-import org.sully.d2.server.SingleDropContextSummary;
-import org.sully.d2.server.SummaryInfo;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -55,22 +51,6 @@ public class DataSnapshot {
                 }
             }
         }
-    }
-
-    public SummaryInfo toSummaryObject() {
-        List<SingleDropContextSummary> dropContextSummaries = new ArrayList<>();
-        for (SingleDropContextSnapshot dropContextSnapshot : dropContexts.values()) {
-
-            List<ConsumerSummary> consumerSummaries = new ArrayList<>();
-            for (TCDropConsumerSnapshot consumer : dropContextSnapshot.getConsumersById().values()) {
-                consumerSummaries.add(consumer.toSummaryObject());
-            }
-            dropContextSummaries.add(SingleDropContextSummary.builder()
-                    .dropContext(DropContextEnum.valueOf(dropContextSnapshot.getDropContextName()))
-                    .consumers(consumerSummaries)
-                    .build());
-        }
-        return SummaryInfo.builder().dropContexts(dropContextSummaries).build();
     }
 
     public SingleConsumerDataWithItems getSingleConsumerData(DropContextEnum dropContext, String consumerId) {

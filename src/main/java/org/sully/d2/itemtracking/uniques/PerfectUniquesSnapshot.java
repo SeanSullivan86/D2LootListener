@@ -3,7 +3,6 @@ package org.sully.d2.itemtracking.uniques;
 import lombok.Builder;
 import lombok.Value;
 import org.sully.d2.itemtracking.TCDropConsumerSnapshot;
-import org.sully.d2.server.ConsumerSummary;
 
 import java.util.HashSet;
 import java.util.Map;
@@ -32,12 +31,4 @@ public class PerfectUniquesSnapshot implements TCDropConsumerSnapshot {
         return itemIds;
     }
 
-    @Override
-    public ConsumerSummary toSummaryObject() {
-        return ConsumerSummary.builder()
-                .consumerId(id)
-                .consumerType(this.getClass().getSimpleName())
-                .additionalInfo(null)
-                .build();
-    }
 }

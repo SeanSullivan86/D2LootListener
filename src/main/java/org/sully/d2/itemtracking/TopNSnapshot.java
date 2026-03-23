@@ -2,7 +2,6 @@ package org.sully.d2.itemtracking;
 
 import lombok.Builder;
 import lombok.Value;
-import org.sully.d2.server.ConsumerSummary;
 
 import java.util.HashSet;
 import java.util.List;
@@ -23,16 +22,6 @@ public class TopNSnapshot implements TCDropConsumerSnapshot {
 	public Set<Long> getReferencedItemIds() {
 		return new HashSet<>(stats.getTopItemIds());
 	}
-
-	@Override
-	public ConsumerSummary toSummaryObject() {
-		return ConsumerSummary.builder()
-				.consumerId(id)
-				.consumerType(this.getClass().getSimpleName())
-				.additionalInfo(null)
-				.build();
-	}
-
 
 	@Value
 	@Builder

@@ -22,7 +22,7 @@ public class D2LootListener {
 			DropContextEnum.L85_NORMAL_MOB, 1.0 / 70000
 	));
 
-	public static final int SNAPSHOT_INTERVAL_SECONDS = 1800;
+	public static final int SNAPSHOT_INTERVAL_SECONDS = 3600;
 
 	public static void main(String[] args) throws Exception {
 		run();
@@ -38,6 +38,8 @@ public class D2LootListener {
 
 		HardcodedTCDropConsumerConfiguration consumerConfig = new HardcodedTCDropConsumerConfiguration();
 
+		File r2ConfigFile = new File(System.getenv().get("R2_CONFIG_PATH"));
+		R2ObjectStorageClient r2Client = new R2ObjectStorageClient(r2ConfigFile);
 
 
 		DropContextEnum[] dropContextsByGameIndex = new DropContextEnum[d2InstanceCount];
@@ -209,7 +211,7 @@ public class D2LootListener {
 						.build();
 
 
-				snapshotManager.saveSnapshot(newSnapshot);
+				snapshotManager.saveSnapshot(newSnapshot, r2Client);
 
 
 				long nanoTimeAtEndOfSnapshotting = System.nanoTime();
@@ -217,8 +219,6 @@ public class D2LootListener {
 				System.out.println("Finished saving snapshot. Time spent = " + String.format("%.1f", ((nanoTimeAtEndOfSnapshotting - nanoTimeAtStartOfSnapshotting) / 1_000_000.0)) + " ms");
 
 				nextSnapshotTime = nanoTimeAtEndOfSnapshotting + TimeUnit.SECONDS.toNanos(SNAPSHOT_INTERVAL_SECONDS);
-
-				// todo send the snapshot to a different server ?
 
 				previousSnapshot = newSnapshot;
 			}

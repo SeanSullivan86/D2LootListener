@@ -193,8 +193,8 @@ public class CategorizedTopN implements D2TCDropConsumer {
 				this.additionalCriteria, this.id, this.categorizer, this.scoringFunction, this.keepTopNItemsPerCategory, this.includeScoreDistribution);
 		}
 
-		public Builder includeScoreDistribution() {
-			this.includeScoreDistribution = true;
+		public Builder includeScoreDistribution(boolean val) {
+			this.includeScoreDistribution = val;
 			return this;
 		}
 		

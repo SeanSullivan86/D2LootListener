@@ -415,6 +415,18 @@ public class D2Item {
 		} else if (sockets > 2 && quality == ItemQuality.MAGIC) {
 			result += (sockets - 2)*120.0;
 		}
+
+		// If normal items have 0 sockets, they can be socketed via Larzuk quest to get the max number of sockets for that item
+		// so a normal-quality item is bad if it spawned with some number of sockets greater than 0 but less than the
+		// max number of sockets for that item.
+		if (quality == ItemQuality.NORMAL && sockets > 0) {
+			int maxSockets = this.itemType.getEquipmentInfo().getEliteType().getMaxSocketsAtHighIlvl();
+			if (sockets < maxSockets) {
+				result -= (maxSockets - sockets) * 120.0;
+			}
+		}
+
+		if (result < 0) result = 0;
 		return (int) result;
 	}
 

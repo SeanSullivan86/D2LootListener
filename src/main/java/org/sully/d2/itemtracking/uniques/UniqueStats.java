@@ -57,6 +57,7 @@ public class UniqueStats {
         x.maxPerfection = snapshot.getMaxPerfection();
         x.maxEthPerfection = snapshot.getMaxEthPerfection();
         x.nonEthCount = snapshot.getNonEthCount();
+        x.ethCount = snapshot.getEthCount();
         x.perfectCount = snapshot.getPerfectCount();
         x.perfectEthCount = snapshot.getPerfectEthCount();
         x.bestItem = snapshot.getBestItemId() == null ? null :

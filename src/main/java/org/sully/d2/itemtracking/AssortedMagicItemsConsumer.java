@@ -12,7 +12,6 @@ import java.util.*;
 
 public class AssortedMagicItemsConsumer implements D2TCDropConsumer {
 
-
     @Getter
     long totalIterations = 0L;
 
@@ -21,7 +20,6 @@ public class AssortedMagicItemsConsumer implements D2TCDropConsumer {
 
     private long[][] counts = new long[Category.values().length][2];
     private D2Item[][] examples = new D2Item[Category.values().length][2];
-
 
     public AssortedMagicItemsConsumer(String id) {
         this.id = id;
@@ -154,7 +152,7 @@ public class AssortedMagicItemsConsumer implements D2TCDropConsumer {
                 if (item.getStat(D2ItemStats.FASTER_BLOCK_RATE.statId) == 30) {
                     addPerfectItem(Category.JEWELERS_MONARCH_OF_DEFLECTING, item);
                 }
-                if (item.getStat(D2ItemStats.REDUCE_REQUIREMENTS_PERCENT.statId) == 30) {
+                if (item.getStat(D2ItemStats.REDUCE_REQUIREMENTS_PERCENT.statId) == -30) {
                     addPerfectItem(Category.JEWELERS_MONARCH_OF_SIMPLICITY, item);
                 }
             }

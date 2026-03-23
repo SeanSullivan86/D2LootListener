@@ -8,6 +8,7 @@ import org.sully.d2.gamemodel.enums.CharacterClass;
 import org.sully.d2.gamemodel.enums.ItemQuality;
 import org.sully.d2.gamemodel.StatList;
 import org.sully.d2.gamemodel.StatValue;
+import org.sully.d2.gamemodel.staticgamedata.D2ItemStats;
 import org.sully.d2.gamemodel.staticgamedata.D2ItemType;
 
 import java.util.ArrayList;
@@ -120,6 +121,7 @@ public class WeaponInfoForDamageCalc {
 
         int minDamageBonus = Math.max(magicStats.getStat(21) /* "minDamage" */, magicStats.getStat(23) /* "secondaryMinDamage" */);
         int maxDamageBonus = Math.max(magicStats.getStat(22) /* "maxDamage" */, magicStats.getStat(24) /* "secondaryMaxDamage" */);
+        maxDamageBonus += (magicStats.getStat(D2ItemStats.MAX_DAMAGE_PER_LEVEL.statId) * 99 / 8);
 
         int minDamage = itemType.getWeaponInfo().getDamageWithNormalHandedness().getMin() + (ethereal ? ((int)(itemType.getWeaponInfo().getDamageWithNormalHandedness().getMin() * 0.5)) : 0);
         int maxDamage = itemType.getWeaponInfo().getDamageWithNormalHandedness().getMax() + (ethereal ? ((int)(itemType.getWeaponInfo().getDamageWithNormalHandedness().getMax() * 0.5)) : 0);

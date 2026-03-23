@@ -2,7 +2,6 @@ package org.sully.d2.itemtracking;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import org.sully.d2.server.ConsumerSummary;
 
 import java.util.Set;
 
@@ -15,6 +14,4 @@ public interface TCDropConsumerSnapshot {
 	@JsonIgnore
 	Set<Long> getReferencedItemIds();
 
-	@JsonIgnore
-	ConsumerSummary toSummaryObject();
 }

@@ -218,8 +218,8 @@ public class TopNConsumer implements D2TCDropConsumer {
 			return this;
 		}
 
-		public Builder includeScoreDistribution() {
-			this.includeScoreDistribution = true;
+		public Builder includeScoreDistribution(boolean val) {
+			this.includeScoreDistribution = val;
 			return this;
 		}
 

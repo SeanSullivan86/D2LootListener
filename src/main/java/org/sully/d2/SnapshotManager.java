@@ -6,13 +6,16 @@ import org.sully.d2.gamemodel.D2Item;
 import org.sully.d2.gamemodel.D2ItemMixinForWebsiteSerialization;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.Map;
 import java.util.Optional;
+import java.util.zip.GZIPOutputStream;
 
 public class SnapshotManager {
 
@@ -50,19 +53,25 @@ public class SnapshotManager {
         return "D2_ITEMS_" + formatter.format(Instant.now());
     }
 
-    public void saveSnapshot(DataSnapshot snapshot) {
-        File snapshotFile = new File(snapshotFolder, snapshot.getId());
+    public void saveSnapshot(DataSnapshot snapshot, R2ObjectStorageClient r2Client) {
+        File snapshotFile = new File(snapshotFolder, snapshot.getId() + ".json");
         try {
             objectMapper.writeValue(snapshotFile, snapshot);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
 
-        File webSnapshot = new File(snapshotFolder, "WEB_" + snapshot.getId());
-        try {
-            websiteSerializer.writeValue(webSnapshot, snapshot);
+        File webSnapshot = new File(snapshotFolder, "WEB_" + snapshot.getId() + ".json.gz");
+        try (FileOutputStream fos = new FileOutputStream(webSnapshot);
+             GZIPOutputStream gzos = new GZIPOutputStream(fos)) {
+            websiteSerializer.writeValue(gzos, snapshot);
         } catch (IOException e) {
             throw new RuntimeException(e);
+        }
+
+        if (r2Client != null) {
+            r2Client.upload("ITEM_SNAPSHOT.json.gz", webSnapshot,
+                    Map.of("SNAPSHOT_HOUR", "" + (System.currentTimeMillis() / (3_600_000))));
         }
     }
 }

@@ -32,7 +32,7 @@ public class HardcodedTCDropConsumerConfiguration {
                 .allowItemQualities(ItemQuality.NORMAL)
                 .withScoringFunction(item -> item.getGold())
                 .withCountOfTopScoringItemsToKeepInEachCategory(1)
-                .includeScoreDistribution()
+                .includeScoreDistribution(true)
                 .build());
 
         allConsumers.add( new ItemGrid(
@@ -55,7 +55,29 @@ public class HardcodedTCDropConsumerConfiguration {
                 Comparator.naturalOrder(),
                 Comparator.naturalOrder()));
 
-
+        allConsumers.add(new ItemGrid(
+                "RARE_ENHANCED_DAMAGE_WEAPONS",
+                item -> {
+                    int ed = item.getStat(D2ItemStats.MAXDAMAGE_PERCENT.statId);
+                    if (ed < 10) throw new RuntimeException("Unexpected low damage: " + item.toLongString());
+                    if (ed <= 20) return "[A] Jagged [10-20%]";
+                    if (ed <= 30) return "[B] Deadly [21-30%]";
+                    if (ed <= 40) return "[C] Vicious [31-40%]";
+                    if (ed <= 50) return "[D] Brutal [41-50%]";
+                    if (ed <= 65) return "[E] Massive [51-65%]";
+                    if (ed <= 80) return "[F] Savage [66-80%]";
+                    if (ed <= 100) return "[G] Merciless [81-100%]";
+                    if (ed <= 200) return "[H] Ferocious [101-200%]";
+                    if (ed <= 300) return "[I] Cruel [201-300%]";
+                    throw new RuntimeException("Unexpected high damage: " + item.toLongString());
+                },
+                item -> "Any",
+                item -> (item.getQuality() == ItemQuality.RARE && item.getWeaponInfoForDamageCalc() != null &&
+                        item.hasStat(D2ItemStats.MAXDAMAGE_PERCENT.statId) && (! item.hasStat(D2ItemStats.ATTACK_RATING.statId))),
+                name -> name,
+                name -> name,
+                Comparator.naturalOrder(),
+                Comparator.naturalOrder()));
 
         allConsumers.add(new BasicStatsConsumer("BASIC_STATS"));
 
@@ -168,10 +190,6 @@ public class HardcodedTCDropConsumerConfiguration {
                 .withCountOfTopScoringItemsToKeepInEachCategory(10)
                 .build());
 
-
-
-
-
         allConsumers.add(CategorizedTopN.withId("HIGH_DEFENSE_ARMOR")
                 .addItemTypeTypeCodes("tors")
                 .allowItemQualities(ItemQuality.NORMAL, ItemQuality.SUPERIOR)
@@ -180,10 +198,7 @@ public class HardcodedTCDropConsumerConfiguration {
                 .withCountOfTopScoringItemsToKeepInEachCategory(10)
                 .build());
 
-
         allConsumers.add(new StaffmodTracker("STAFFMOD_TRACKER"));
-
-
 
         allConsumers.add(TopNConsumer.withId("RARE_MELEE_JEWELS")
                 .addItemTypeTypeCodes("jewl")
@@ -210,6 +225,15 @@ public class HardcodedTCDropConsumerConfiguration {
                     return (int) result;
                 })
                 .withCountOfTopScoringItemsToKeepInEachCategory(10)
+                .build());
+
+        allConsumers.add(TopNConsumer.withId("ILLEGAL_BARB_STAFFMODS")
+                .addItemTypeTypeCodes("phlm")
+                .allowItemQualities(ItemQuality.INFERIOR, ItemQuality.NORMAL, ItemQuality.SUPERIOR, ItemQuality.MAGIC, ItemQuality.RARE)
+                .withAdditionalItemCriteria(item -> !item.getIllegalStaffmods().isEmpty())
+                .withScoringFunction(item -> item.getIllegalStaffmods().stream().mapToInt(SkillBonuses.IndividualSkillBonus::getSkillLevelBonus).sum())
+                .withCountOfTopScoringItemsToKeepInEachCategory(10)
+                .includeScoreDistribution(true)
                 .build());
 
         Predicate<D2Item> weaponFilter_1Handed_Ethereal = item -> item.isOneHandableByBarbarian() && item.isEthereal();
@@ -254,7 +278,6 @@ public class HardcodedTCDropConsumerConfiguration {
                             }
 
                         }
-
 
                         final Function<D2Item,DamageOption> damageOption;
                         if (etherealOption == RWEtherealOption.CAN_BE_MADE_LONG_LASTING) {
@@ -308,9 +331,8 @@ public class HardcodedTCDropConsumerConfiguration {
                                 .withCategorizer(item -> item.getItemTypeType().getCode())
                                 .withScoringFunction(item ->  scoringFunction.apply(damageOption.apply(item)))
                                 .withCountOfTopScoringItemsToKeepInEachCategory(5)
+                                .includeScoreDistribution(true)
                                 .build());
-
-
                     }
                 }
             }
