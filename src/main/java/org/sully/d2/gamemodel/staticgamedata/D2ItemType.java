@@ -16,6 +16,8 @@ public class D2ItemType {
 	private static final String COL_CODE = "code";
 	private static final String COL_ITEM_TYPE_TYPE_CODE = "type";
 	private static final String COL_GEMSOCKETS = "gemsockets";
+	private static final String COL_INV_WIDTH = "invwidth";
+	private static final String COL_INV_HEIGHT = "invheight";
 	private static final String COL_SPAWNABLE = "spawnable";
 	private static final String COL_NO_DURABILITY = "nodurability";
 	
@@ -23,6 +25,8 @@ public class D2ItemType {
 	String nameStringCode;
 	String itemTypeTypeCode;
 	int gemSockets;
+	int invWidth;
+	int invHeight;
 	boolean spawnable;
 	boolean hasDurability;
 	
@@ -57,7 +61,9 @@ public class D2ItemType {
     		D2ItemType type = itemTypesByCode.get(code);
     		type.itemTypeType = D2ItemTypeType.fromCode(type.itemTypeTypeCode);
     		type.name = D2String.fromKey(type.nameStringCode);
-    		type.maxSocketsAtHighIlvl = Math.min(type.gemSockets, type.itemTypeType.getMaxSock40());
+
+			int invArea = type.invHeight * type.invWidth;
+    		type.maxSocketsAtHighIlvl = Math.min(Math.min(type.gemSockets, invArea), type.itemTypeType.getMaxSock40());
     	}
     }
 
@@ -113,6 +119,8 @@ public class D2ItemType {
     	item.code = data.get(COL_CODE);
     	item.itemTypeTypeCode = data.get(COL_ITEM_TYPE_TYPE_CODE);
     	item.gemSockets = data.getIntOrZero(COL_GEMSOCKETS);
+		item.invWidth = data.getIntOrZero(COL_INV_WIDTH);
+		item.invHeight = data.getIntOrZero(COL_INV_HEIGHT);
     	item.spawnable = data.getIntOrZero(COL_SPAWNABLE) == 1;
     	item.hasDurability = ! (data.getIntOrZero(COL_NO_DURABILITY) == 1);
 		item.nameStringCode = data.get("namestr");

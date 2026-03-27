@@ -148,8 +148,10 @@ public class D2UniqueItem {
 					System.out.println("Broken Stat " + stat.getCode() + " : " + item.toLongString());
 				}
 
-				rollSum += ((statValue - statMin) * 1.0) / (statMax - statMin);
-				rollCount++;
+				if (statMax > statMin) {
+					rollSum += ((statValue - statMin) * 1.0) / (statMax - statMin);
+					rollCount++;
+				}
 			}
 		}
 		if (rollCount == 0) return 1.0;
@@ -283,17 +285,31 @@ public class D2UniqueItem {
 				}
 			}
 			
-			System.out.println("---\n" + unique.disambiguatedName);
+			// System.out.println("---\n" + unique.disambiguatedName);
+			List<String> possibleRolls = new ArrayList<>();
+			possibleRolls.add(unique.disambiguatedName);
 			for (D2PropertyValueRange prop : unique.properties) {
 				prop.property = D2Property.fromCode(prop.getPropertyCode());
 				D2Property.ItemStatModifier statModifier = prop.property.getStatModifiers().get(0);
-				if (statModifier.getStatFuncBehavior().statValueUsesRandomRoll /* && prop.min != prop.max */) {
+				if (statModifier.getStatFuncBehavior().statValueUsesRandomRoll && prop.min != prop.max) {
 					D2ItemStat stat = D2ItemStat.fromId(prop.statImpactedByRoll.getStatId());
-					int statMin = prop.getMin() << stat.getValShift();
-					int statMax = prop.getMax() << stat.getValShift();
-					System.out.println(prop.getPropertyCode() + "(" + prop.getParam() + ") --> " + stat.getCode() + "(" + prop.statImpactedByRoll.getParam() + ")  [" + statMin + " - " + statMax +"]");
+					int propMin = prop.getMin();
+					int propMax = prop.getMax();
+					if (stat.getId() == 194) {
+						int maxSockets = unique.itemType.getMaxSocketsAtHighIlvl();
+						propMin = Math.min(maxSockets, prop.min == 0 ? Integer.parseInt(prop.getParam()) : prop.min);
+						propMax = Math.min(maxSockets, prop.max == 0 ? Integer.parseInt(prop.getParam()) : prop.max);
+					}
+					if (propMin < propMax) {
+						possibleRolls.add(prop.getPropertyCode());
+						possibleRolls.add(prop.getParam() == null ? "" : prop.getParam());
+						possibleRolls.add(""+propMin);
+						possibleRolls.add(""+propMax);
+					}
+					// System.out.println(prop.getPropertyCode() + "(" + prop.getParam() + ") --> " + stat.getCode() + "(" + prop.statImpactedByRoll.getParam() + ")  [" + statMin + " - " + statMax +"]");
 				}
 			}
+			System.out.println(String.join("\t", possibleRolls));
 			
 			if (unique.itemType.isSpawnable() && unique.qlvl < 100) {
 				spawnableUniquesBelowIlvl100.add(unique);

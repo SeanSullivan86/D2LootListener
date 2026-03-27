@@ -48,8 +48,6 @@ public class D2Item {
 
 	DropContextEnum dropContext;
 
-
-
 	public int getStat(int statId) {
 		return stats.getStat(statId);
 	}
@@ -94,6 +92,12 @@ public class D2Item {
 			}
 		}
 		return 0;
+	}
+
+	/** Treats all Claws as 'h2h' type instead of some having 'h2h2' type */
+	public String getItemTypeTypeCodeTreatingAllClawsAsSingleType() {
+		if ("h2h2".equals(itemTypeType.getCode())) return "h2h";
+		return itemTypeType.getCode();
 	}
 
 	public int getIndividualSkillBonusWithoutTabOrCharacterClassSkillAffixes(D2Skill skill) {
@@ -397,11 +401,11 @@ public class D2Item {
 		result += stats.getStat(D2ItemStats.STRENGTH.statId) * 0.5;
 		result += stats.getStat(D2ItemStats.DEXTERITY.statId) * 0.1;
 		result += stats.getStat(D2ItemStats.VITALITY.statId) * 0.67;
-		result += stats.getStat(D2ItemStats.ENERGY.statId) * 0.67;
+		result += stats.getStat(D2ItemStats.ENERGY.statId) * 0.4444;
 		result += stats.getStat(D2ItemStats.LIFE.statId)/256.0 * 0.3;
-		result += stats.getStat(D2ItemStats.MANA.statId)/256.0 * 0.3;
+		result += stats.getStat(D2ItemStats.MANA.statId)/256.0 * 0.2;
 		result += stats.getStat(D2ItemStats.LIFE_PER_LEVEL.statId)/256.0/8.0*90.0 * 0.3;
-		result += stats.getStat(D2ItemStats.MANA_PER_LEVEL.statId)/256.0/8.0*90.0 * 0.3;
+		result += stats.getStat(D2ItemStats.MANA_PER_LEVEL.statId)/256.0/8.0*90.0 * 0.2;
 		result += stats.getStat(D2ItemStats.MANA_AFTER_EACH_KILL.statId) * 4.0;
 		result += stats.getStat(D2ItemStats.FASTER_HIT_RECOVERY.statId) * (20.0/24.0);
 		result += stats.getStat(D2ItemStats.FASTER_CAST_RATE.statId) * 8.0;
@@ -416,13 +420,14 @@ public class D2Item {
 			result += (sockets - 2)*120.0;
 		}
 
-		// If normal items have 0 sockets, they can be socketed via Larzuk quest to get the max number of sockets for that item
-		// so a normal-quality item is bad if it spawned with some number of sockets greater than 0 but less than the
-		// max number of sockets for that item.
-		if (quality == ItemQuality.NORMAL && sockets > 0) {
-			int maxSockets = this.itemType.getEquipmentInfo().getEliteType().getMaxSocketsAtHighIlvl();
-			if (sockets < maxSockets) {
-				result -= (maxSockets - sockets) * 120.0;
+		// TODO make this not specific to Orbs (right now it's ok because only Orbs are using it)
+		if (quality == ItemQuality.NORMAL && "orb".equals(this.itemTypeType.getCode())) {
+			// if it doesn't have any sockets, max sockets it could get is upgrade to elite and then socket via larzuk
+			int maxSocketsForThisItemInstance = (sockets == 0) ? this.itemType.getEquipmentInfo().getEliteType().getMaxSocketsAtHighIlvl() : sockets;
+
+			// max sockets for Orbs in general is 3, so penalize if that isn't possible on this item
+			if (maxSocketsForThisItemInstance < 3) {
+				result -= (3 - maxSocketsForThisItemInstance) * 120.0;
 			}
 		}
 

@@ -204,9 +204,9 @@ public class HardcodedTCDropConsumerConfiguration {
                 .addItemTypeTypeCodes("jewl")
                 .withAdditionalItemCriteria(item -> item.getStat(D2ItemStats.MAXDAMAGE_PERCENT.statId) > 20)
                 .allowItemQualities(ItemQuality.RARE)
-                .withScoringFunction(item -> item.getStat(D2ItemStats.MAXDAMAGE_PERCENT.statId)
-                        + item.getStat(D2ItemStats.FIRE_RESIST.statId)/3 + item.getStat(D2ItemStats.LIGHTNING_RESIST.statId)/3 + item.getStat(D2ItemStats.COLD_RESIST.statId)/3
-                        + item.getStat(D2ItemStats.STRENGTH.statId) + item.getStat(D2ItemStats.DEXTERITY.statId) + item.getStat(D2ItemStats.ATTACK_RATING.statId)/5)
+                .withScoringFunction(item -> (int) (item.getStat(D2ItemStats.MAXDAMAGE_PERCENT.statId)
+                        + item.getStat(D2ItemStats.FIRE_RESIST.statId)/5.0 + item.getStat(D2ItemStats.LIGHTNING_RESIST.statId)/5.0 + item.getStat(D2ItemStats.COLD_RESIST.statId)/5.0
+                        + item.getStat(D2ItemStats.STRENGTH.statId) + item.getStat(D2ItemStats.DEXTERITY.statId) + item.getStat(D2ItemStats.ATTACK_RATING.statId)/7.5))
                 .withCountOfTopScoringItemsToKeepInEachCategory(10)
                 .build());
 
@@ -282,45 +282,37 @@ public class HardcodedTCDropConsumerConfiguration {
                         final Function<D2Item,DamageOption> damageOption;
                         if (etherealOption == RWEtherealOption.CAN_BE_MADE_LONG_LASTING) {
                             if (handednessOption == RWHandednessOption.TWO_HANDED) {
-                                if (upgradeOption == RWUpgradeOption.NO_UPGRADE)
-                                    damageOption = item -> item.getOriginalDmg();
-                                else if (upgradeOption == RWUpgradeOption.ELITE_SOCKETS_ZOD_4015)
-                                    damageOption = item -> item.getUpSocketZod4015();
-                                else if (upgradeOption == RWUpgradeOption.ELITE_SOCKETS_ZOD_OHM)
-                                    damageOption = item -> item.getUpSocketZodOhm();
-                                else // ELITE_SOCKETS_ZOD
-                                    damageOption = item -> item.getUpSocketZod();
+                                damageOption = switch(upgradeOption) {
+                                    case NO_UPGRADE -> (item -> item.getOriginalDmg());
+                                    case ELITE_SOCKETS_ZOD_4015 -> (item -> item.getUpSocketZod4015());
+                                    case ELITE_SOCKETS_ZOD_OHM -> (item -> item.getUpSocketZodOhm());
+                                };
                             } else { // 1 handed
-                                if (upgradeOption == RWUpgradeOption.NO_UPGRADE)
-                                    damageOption = item -> item.getOriginalDmg_1h() == null ? item.getOriginalDmg() : item.getOriginalDmg_1h();
-                                else if (upgradeOption == RWUpgradeOption.ELITE_SOCKETS_ZOD_4015)
-                                    damageOption = item -> item.getUpSocketZod4015_1h() == null ? item.getUpSocketZod4015() : item.getUpSocketZod4015_1h();
-                                else if (upgradeOption == RWUpgradeOption.ELITE_SOCKETS_ZOD_OHM)
-                                    damageOption = item -> item.getUpSocketZodOhm_1h() == null ? item.getUpSocketZodOhm() : item.getUpSocketZodOhm_1h();
-                                else // ELITE_SOCKETS_ZOD
-                                    damageOption = item -> item.getUpSocketZod_1h() == null ? item.getUpSocketZod() : item.getUpSocketZod_1h();
+                                damageOption = switch(upgradeOption) {
+                                    case NO_UPGRADE -> (item -> item.getOriginalDmg_1h() == null ? item.getOriginalDmg() : item.getOriginalDmg_1h());
+                                    case ELITE_SOCKETS_ZOD_4015 -> (item -> item.getUpSocketZod4015_1h() == null ? item.getUpSocketZod4015() : item.getUpSocketZod4015_1h());
+                                    case ELITE_SOCKETS_ZOD_OHM -> (item -> item.getUpSocketZodOhm_1h() == null ? item.getUpSocketZodOhm() : item.getUpSocketZodOhm_1h());
+                                };
                             }
                         } else { // ETHEREAL
                             if (handednessOption == RWHandednessOption.TWO_HANDED) {
-                                if (upgradeOption == RWUpgradeOption.NO_UPGRADE)
-                                    damageOption = item -> item.getOriginalDmg();
-                                else if (upgradeOption == RWUpgradeOption.ELITE_SOCKETS_ZOD_4015)
-                                    damageOption = item -> item.getUpSocket4015_eth();
-                                else if (upgradeOption == RWUpgradeOption.ELITE_SOCKETS_ZOD_OHM)
-                                    damageOption = item -> item.getUpSocketOhm_eth();
-                                else // ELITE_SOCKETS_ZOD
-                                    damageOption = item -> item.getUpSocket_eth();
+                                damageOption = switch(upgradeOption) {
+                                    case NO_UPGRADE -> (item -> item.getOriginalDmg());
+                                    case ELITE_SOCKETS_ZOD_4015 -> (item -> item.getUpSocket4015_eth());
+                                    case ELITE_SOCKETS_ZOD_OHM -> (item -> item.getUpSocketOhm_eth());
+                                };
                             } else { // 1 handed
-                                if (upgradeOption == RWUpgradeOption.NO_UPGRADE)
-                                    damageOption = item -> item.getOriginalDmg_1h() == null ? item.getOriginalDmg() : item.getOriginalDmg_1h();
-                                else if (upgradeOption == RWUpgradeOption.ELITE_SOCKETS_ZOD_4015)
-                                    damageOption = item -> item.getUpSocket4015_eth_1h() == null ? item.getUpSocket4015_eth() : item.getUpSocket4015_eth_1h();
-                                else if (upgradeOption == RWUpgradeOption.ELITE_SOCKETS_ZOD_OHM)
-                                    damageOption = item -> item.getUpSocketOhm_eth_1h() == null ? item.getUpSocketOhm_eth() : item.getUpSocketOhm_eth_1h();
-                                else // ELITE_SOCKETS_ZOD
-                                    damageOption = item -> item.getUpSocket_eth_1h() == null ? item.getUpSocket_eth() : item.getUpSocket_eth_1h();
+                                damageOption = switch(upgradeOption) {
+                                    case NO_UPGRADE -> (item -> item.getOriginalDmg_1h() == null ? item.getOriginalDmg() : item.getOriginalDmg_1h());
+                                    case ELITE_SOCKETS_ZOD_4015 -> (item -> item.getUpSocket4015_eth_1h() == null ? item.getUpSocket4015_eth() : item.getUpSocket4015_eth_1h());
+                                    case ELITE_SOCKETS_ZOD_OHM -> (item -> item.getUpSocketOhm_eth_1h() == null ? item.getUpSocketOhm_eth() : item.getUpSocketOhm_eth_1h());
+                                };
                             }
                         }
+
+                        boolean includeStoreDistribution = (handednessOption == RWHandednessOption.TWO_HANDED)
+                                && ((scoringOption == RWScoringOption.MAX_DMG && upgradeOption == RWUpgradeOption.ELITE_SOCKETS_ZOD_OHM)
+                                    || (scoringOption == RWScoringOption.DPS && upgradeOption == RWUpgradeOption.ELITE_SOCKETS_ZOD_4015));
 
                         allConsumers.add(CategorizedTopN.withId("RARE_WEAPONS|" + scoringOption.name() + "|" +
                                         upgradeOption.name() + "|" + handednessOption.name() + "|" + etherealOption.name())
@@ -328,10 +320,10 @@ public class HardcodedTCDropConsumerConfiguration {
                                 .excludeItemTypeTypeCodes("staf","wand","orb")
                                 .allowItemQualities(ItemQuality.RARE)
                                 .withAdditionalItemCriteria(weaponFilter)
-                                .withCategorizer(item -> item.getItemTypeType().getCode())
+                                .withCategorizer(D2Item::getItemTypeTypeCodeTreatingAllClawsAsSingleType)
                                 .withScoringFunction(item ->  scoringFunction.apply(damageOption.apply(item)))
                                 .withCountOfTopScoringItemsToKeepInEachCategory(5)
-                                .includeScoreDistribution(true)
+                                .includeScoreDistribution(includeStoreDistribution)
                                 .build());
                     }
                 }
@@ -347,7 +339,7 @@ public class HardcodedTCDropConsumerConfiguration {
                         item.getItemType().getWeaponInfo().isTwoHanded() &&
                         item.getStat(D2ItemStats.ATTACK_RATING_PER_LEVEL.statId) == 33 &&
                         item.getWeaponInfoForDamageCalc().isAlreadyLongLastingOrCanBeFixedWithSocketingAndZod())
-                .withCategorizer(item -> item.getItemTypeType().getCode())
+                .withCategorizer(D2Item::getItemTypeTypeCodeTreatingAllClawsAsSingleType)
                 .withScoringFunction(item -> item.getUpSocketZod4015().getDps())
                 .withCountOfTopScoringItemsToKeepInEachCategory(5)
                 .build());
@@ -360,7 +352,7 @@ public class HardcodedTCDropConsumerConfiguration {
                         item.isOneHandableByBarbarian() &&
                         item.getStat(D2ItemStats.ATTACK_RATING_PER_LEVEL.statId) == 33 &&
                         item.getWeaponInfoForDamageCalc().isAlreadyLongLastingOrCanBeFixedWithSocketingAndZod())
-                .withCategorizer(item -> item.getItemTypeType().getCode())
+                .withCategorizer(D2Item::getItemTypeTypeCodeTreatingAllClawsAsSingleType)
                 .withScoringFunction(item -> (item.getUpSocketZod4015_1h() == null ? item.getUpSocketZod4015() : item.getUpSocketZod4015_1h()).getDps())
                 .withCountOfTopScoringItemsToKeepInEachCategory(5)
                 .build());
@@ -387,7 +379,6 @@ enum RWUpgradeOption {
     NO_UPGRADE,
     ELITE_SOCKETS_ZOD_4015,
     ELITE_SOCKETS_ZOD_OHM,
-    ELITE_SOCKETS_ZOD;
 }
 
 enum RWHandednessOption {
